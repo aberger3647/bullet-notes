@@ -1,73 +1,82 @@
-# React + TypeScript + Vite
+# 📝 Bullet Notes
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**A simple hierarchical bullet note app for fast outlining, nesting, completing, and zooming into ideas.**
 
-Currently, two official plugins are available:
+*(No live URL yet — local web app in development)*
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## 📚 Overview
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+**Bullet Notes** is a lightweight outliner built for quickly capturing ideas in nested bullet form.
 
-## Expanding the ESLint configuration
+Create bullets with **Enter**, indent notes with **Tab**, mark items complete with **Cmd/Ctrl + Enter**, and zoom into any bullet to focus only on its children. Notes are saved locally in the browser, so your outline stays available after refreshing.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+---
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 👥 Who It’s For
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+Anyone who wants a simple way to:
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- Capture quick notes and ideas ✍️
+- Organize thoughts into nested outlines 🌲
+- Focus on one section at a time with zoomed-in views 🔍
+- Mark completed bullets and hide finished work ✅
+- Reorder notes by dragging bullets around 🖱️
+
+---
+
+## 💻 Tech Stack
+
+- ⚛️ **React 19 + Vite + TypeScript** — fast, modern front end
+- 🧩 **dnd-kit** — drag-and-drop reordering and nesting
+- 💾 **localStorage** — browser-based persistence
+- 🎨 **CSS** — custom light/dark theme and minimal interface
+
+---
+
+## 🌎 How It Works
+
+1. Type into a bullet to start taking notes
+2. Press **Enter** to create a new bullet at the same level
+3. Press **Tab** to nest a bullet under the one above it
+4. Press **Shift + Tab** to move a bullet back out
+5. Press **Cmd/Ctrl + Enter** to complete or un-complete a bullet
+6. Click a bullet circle to zoom into that bullet and work on its children
+7. Use breadcrumbs to move back up the outline
+8. Drag bullets to reorder, nest, or move them between levels
+
+---
+
+## ✨ Features
+
+- 📝 Fast bullet entry with keyboard shortcuts
+- 🌲 Nested parent and child bullets
+- 🔍 Zoom into any bullet to focus on its children
+- ✅ Completed bullets with strikethrough
+- 🙈 Toggle to hide completed bullets
+- 🖱️ Drag-and-drop reordering and nesting
+- ↩️ Undo and redo controls
+- 🌗 Light and dark mode
+- 💾 Notes saved locally in the browser
+
+---
+
+## 🛠️ Local Development
+
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+To build for production:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run build
 ```
+
+---
+
+## 🪄 License
+
+This project is licensed under the **MIT License**.
