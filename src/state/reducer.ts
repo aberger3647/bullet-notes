@@ -1,0 +1,182 @@
+import type { AppAction, AppState, Snapshot } from './types';
+import { MAX_HISTORY } from './types';
+import {
+  createNode,
+  appendChild,
+  indentNode,
+  insertSiblingAfter,
+  locateNode,
+  moveAsChild,
+  moveBeforeSibling,
+  outdentNode,
+  reorderSiblings,
+  sanitizeZoomPath,
+  setNodeText,
+  toggleComplete,
+} from './treeOps';
+
+const initialSettings = { hideCompleted: false, theme: 'light' as const };
+
+export const initialAppState: AppState = {
+  tree: [createNode({ text: '' })],
+  zoomPath: [],
+  settings: initialSettings,
+  history: { past: [], future: [] },
+  focusedId: null,
+};
+
+function capPast(past: Snapshot[]): Snapshot[] {
+  if (past.length <= MAX_HISTORY) return past;
+  return past.slice(past.length - MAX_HISTORY);
+}
+
+function snapshotOf(state: AppState): Snapshot {
+  return {
+    tree: structuredClone(state.tree),
+    zoomPath: [...state.zoomPath],
+  };
+}
+
+function withCommit(state: AppState, next: Partial<AppState>): AppState {
+  const snap = snapshotOf(state);
+  return {
+    ...state,
+    ...next,
+    history: {
+      past: capPast([...state.history.past, snap]),
+      future: [],
+    },
+  };
+}
+
+function applyUndo(state: AppState): AppState {
+  if (state.history.past.length === 0) return state;
+  const previous = state.history.past[state.history.past.length - 1]!;
+  const newPast = state.history.past.slice(0, -1);
+  const currentSnap: Snapshot = snapshotOf(state);
+  return {
+    ...state,
+    tree: previous.tree,
+    zoomPath: sanitizeZoomPath(previous.tree, previous.zoomPath),
+    focusedId: null,
+    history: {
+      past: newPast,
+      future: [currentSnap, ...state.history.future],
+    },
+  };
+}
+
+function applyRedo(state: AppState): AppState {
+  if (state.history.future.length === 0) return state;
+  const next = state.history.future[0]!;
+  const newFuture = state.history.future.slice(1);
+  const currentSnap: Snapshot = snapshotOf(state);
+  return {
+    ...state,
+    tree: next.tree,
+    zoomPath: sanitizeZoomPath(next.tree, next.zoomPath),
+    focusedId: null,
+    history: {
+      past: capPast([...state.history.past, currentSnap]),
+      future: newFuture,
+    },
+  };
+}
+
+export function appReducer(state: AppState, action: AppAction): AppState {
+  switch (action.type) {
+    case 'HYDRATE': {
+      const tree = action.payload.tree?.length ? action.payload.tree : initialAppState.tree;
+      const zoomPath = sanitizeZoomPath(tree, action.payload.zoomPath ?? []);
+      return {
+        ...state,
+        tree,
+        zoomPath,
+        settings: { ...initialSettings, ...action.payload.settings },
+        history: { past: [], future: [] },
+        focusedId: null,
+      };
+    }
+    case 'SET_FOCUSED':
+      return { ...state, focusedId: action.id };
+    case 'SET_HIDE_COMPLETED':
+      return { ...state, settings: { ...state.settings, hideCompleted: action.value } };
+    case 'SET_THEME':
+      return { ...state, settings: { ...state.settings, theme: action.value } };
+    case 'UNDO':
+      return applyUndo(state);
+    case 'REDO':
+      return applyRedo(state);
+    case 'SET_TEXT': {
+      const nextTree = setNodeText(state.tree, action.id, action.text);
+      if (nextTree === state.tree) return state;
+      return { ...state, tree: nextTree };
+    }
+    case 'TOGGLE_COMPLETE': {
+      const nextTree = toggleComplete(state.tree, action.id);
+      if (nextTree === state.tree) return state;
+      return withCommit(state, { tree: nextTree });
+    }
+    case 'NEW_SIBLING_AFTER': {
+      const fresh = createNode({ text: '' });
+      const nextTree = insertSiblingAfter(state.tree, action.afterId, fresh);
+      if (nextTree === state.tree) return state;
+      return withCommit(state, { tree: nextTree, focusedId: fresh.id });
+    }
+    case 'INDENT': {
+      const nextTree = indentNode(state.tree, action.id);
+      if (nextTree === state.tree) return state;
+      return withCommit(state, { tree: nextTree, focusedId: action.id });
+    }
+    case 'OUTDENT': {
+      const nextTree = outdentNode(state.tree, action.id);
+      if (nextTree === state.tree) return state;
+      return withCommit(state, { tree: nextTree, focusedId: action.id });
+    }
+    case 'ZOOM_INTO': {
+      const loc = locateNode(state.tree, action.id);
+      const nextPath = [...state.zoomPath, action.id];
+      if (!loc) return state;
+      if (loc.node.children.length === 0) {
+        const first = createNode({ text: '' });
+        const nextTree = appendChild(state.tree, action.id, first);
+        return withCommit(state, { tree: nextTree, zoomPath: nextPath, focusedId: first.id });
+      }
+      return withCommit(state, { zoomPath: nextPath, focusedId: null });
+    }
+    case 'ZOOM_BACK': {
+      if (state.zoomPath.length === 0) return state;
+      const nextPath = state.zoomPath.slice(0, -1);
+      return withCommit(state, { zoomPath: nextPath, focusedId: null });
+    }
+    case 'ZOOM_TO_LEVEL': {
+      const level = Math.max(0, Math.floor(action.level));
+      const clamped = Math.min(level, state.zoomPath.length);
+      const nextPath = state.zoomPath.slice(0, clamped);
+      const same =
+        nextPath.length === state.zoomPath.length &&
+        nextPath.every((id, i) => id === state.zoomPath[i]);
+      if (same) return state;
+      return withCommit(state, { zoomPath: nextPath, focusedId: null });
+    }
+    case 'MOVE_NODE': {
+      const { activeId, overId, nest } = action;
+      if (activeId === overId) return state;
+
+      if (nest) {
+        const nextTree = moveAsChild(state.tree, activeId, overId);
+        if (nextTree === state.tree) return state;
+        return withCommit(state, { tree: nextTree });
+      }
+
+      // If within the same sibling list, reorder; otherwise insert before hovered node
+      // (allows dragging a child out to parent/grandparent/top-level levels).
+      const reordered = reorderSiblings(state.tree, activeId, overId);
+      const nextTree = reordered === state.tree ? moveBeforeSibling(state.tree, activeId, overId) : reordered;
+      if (nextTree === state.tree) return state;
+      return withCommit(state, { tree: nextTree });
+    }
+    default:
+      return state;
+  }
+}
