@@ -118,7 +118,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return withCommit(state, { tree: nextTree });
     }
     case 'NEW_SIBLING_AFTER': {
-      const fresh = createNode({ text: '' });
+      const fresh = action.newId
+        ? createNode({ id: action.newId, text: '' })
+        : createNode({ text: '' });
       const nextTree = insertSiblingAfter(state.tree, action.afterId, fresh);
       if (nextTree === state.tree) return state;
       return withCommit(state, { tree: nextTree, focusedId: fresh.id });
@@ -138,7 +140,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const nextPath = [...state.zoomPath, action.id];
       if (!loc) return state;
       if (loc.node.children.length === 0) {
-        const first = createNode({ text: '' });
+        const first = action.newChildId
+          ? createNode({ id: action.newChildId, text: '' })
+          : createNode({ text: '' });
         const nextTree = appendChild(state.tree, action.id, first);
         return withCommit(state, { tree: nextTree, zoomPath: nextPath, focusedId: first.id });
       }

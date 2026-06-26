@@ -11,6 +11,125 @@
   margin-bottom: 1rem;
 }
 
+.header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.share-header-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--fg);
+  border-radius: 8px;
+  padding: 0.35rem 0.6rem;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.share-header-btn:hover {
+  background: var(--hover);
+}
+
+.share-header-label {
+  display: none;
+}
+
+@media (min-width: 480px) {
+  .share-header-label {
+    display: inline;
+  }
+}
+
+.loading-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 2rem;
+  text-align: center;
+}
+
+.primary-btn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  border-radius: 10px;
+  border: none;
+  background: rgba(37, 99, 235, 0.9);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.primary-btn:hover:not(:disabled) {
+  background: rgba(37, 99, 235, 1);
+}
+
+.primary-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.share-url-label {
+  display: block;
+  font-size: 0.85rem;
+  margin-bottom: 0.35rem;
+}
+
+.share-url-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.share-url-input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--fg);
+}
+
+.sync-status {
+  margin: 0 0 0.75rem;
+  font-size: 0.88rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.sync-status--connected {
+  color: var(--fg);
+}
+
+.sync-status--error,
+.sync-status--reconnecting {
+  color: var(--muted);
+}
+
+.share-error {
+  color: #dc2626;
+  font-size: 0.88rem;
+  margin: 0 0 0.65rem;
+}
+
 .crumb {
   background: transparent;
   border: none;

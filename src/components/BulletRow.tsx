@@ -61,7 +61,7 @@ export function BulletRow({
     if ((e.key === 'Enter' || e.code === 'NumpadEnter') && !e.shiftKey) {
       if (e.nativeEvent.isComposing) return;
       e.preventDefault();
-      dispatch({ type: 'NEW_SIBLING_AFTER', afterId: node.id });
+      dispatch({ type: 'NEW_SIBLING_AFTER', afterId: node.id, newId: crypto.randomUUID() });
       return;
     }
     if (e.key === 'Tab') {
@@ -102,7 +102,13 @@ export function BulletRow({
         type="button"
         className={`bullet-marker ${hasChildren ? 'bullet-marker--parent' : 'bullet-marker--leaf'}`}
         aria-label="Open sub-bullets in page view"
-        onClick={() => dispatch({ type: 'ZOOM_INTO', id: node.id })}
+        onClick={() =>
+          dispatch({
+            type: 'ZOOM_INTO',
+            id: node.id,
+            ...(hasChildren ? {} : { newChildId: crypto.randomUUID() }),
+          })
+        }
         {...attributes}
         {...listeners}
       >

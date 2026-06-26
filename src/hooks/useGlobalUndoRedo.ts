@@ -2,8 +2,9 @@ import { useEffect, type Dispatch } from 'react';
 import type { AppAction } from '../state/types';
 
 /** Undo/redo from anywhere; skips when typing in inputs. */
-export function useGlobalUndoRedo(dispatch: Dispatch<AppAction>) {
+export function useGlobalUndoRedo(dispatch: Dispatch<AppAction>, enabled = true) {
   useEffect(() => {
+    if (!enabled) return;
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
       if (!el) return;
@@ -24,5 +25,5 @@ export function useGlobalUndoRedo(dispatch: Dispatch<AppAction>) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [dispatch]);
+  }, [dispatch, enabled]);
 }

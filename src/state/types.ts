@@ -36,13 +36,13 @@ export type PersistedState = {
 
 export type AppAction =
   | { type: 'HYDRATE'; payload: PersistedState }
-  | { type: 'NEW_SIBLING_AFTER'; afterId: string }
+  | { type: 'NEW_SIBLING_AFTER'; afterId: string; newId?: string }
   | { type: 'INDENT'; id: string }
   | { type: 'OUTDENT'; id: string }
   | { type: 'TOGGLE_COMPLETE'; id: string }
   | { type: 'SET_TEXT'; id: string; text: string }
   | { type: 'SET_FOCUSED'; id: string | null }
-  | { type: 'ZOOM_INTO'; id: string }
+  | { type: 'ZOOM_INTO'; id: string; newChildId?: string }
   | { type: 'ZOOM_BACK' }
   | { type: 'ZOOM_TO_LEVEL'; level: number }
   | { type: 'SET_HIDE_COMPLETED'; value: boolean }

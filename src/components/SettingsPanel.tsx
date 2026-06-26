@@ -71,9 +71,10 @@ function Switch({
 }
 
 export function SettingsPanel({ open, onClose }: Props) {
-  const { state, dispatch } = useAppState();
+  const { state, dispatch, mode } = useAppState();
   const canUndo = state.history.past.length > 0;
   const canRedo = state.history.future.length > 0;
+  const isShared = mode === 'shared';
 
   if (!open) return null;
 
@@ -112,39 +113,48 @@ export function SettingsPanel({ open, onClose }: Props) {
           />
         </div>
 
-        <div className="settings-section">
-          <h3>History</h3>
-          <p className="hint">
-            Shortcuts work when focus is not in a bullet field:{' '}
-            <kbd>{navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}</kbd>+<kbd>Z</kbd> undo,{' '}
-            <kbd>{navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}</kbd>+<kbd>⇧</kbd>+<kbd>Z</kbd>{' '}
-            redo (or <kbd>Ctrl</kbd>+<kbd>Y</kbd> on Windows).
-          </p>
-          <div className="icon-row">
-            <button
-              type="button"
-              className="icon-action"
-              disabled={!canUndo}
-              onClick={() => dispatch({ type: 'UNDO' })}
-              aria-label="Undo"
-              title="Undo"
-            >
-              <UndoIcon />
-              <span className="icon-action-label">Undo</span>
-            </button>
-            <button
-              type="button"
-              className="icon-action"
-              disabled={!canRedo}
-              onClick={() => dispatch({ type: 'REDO' })}
-              aria-label="Redo"
-              title="Redo"
-            >
-              <RedoIcon />
-              <span className="icon-action-label">Redo</span>
-            </button>
+        {isShared ? (
+          <div className="settings-section">
+            <h3>History</h3>
+            <p className="hint">
+              Undo and redo are disabled in shared documents so everyone stays in sync.
+            </p>
           </div>
-        </div>
+        ) : (
+          <div className="settings-section">
+            <h3>History</h3>
+            <p className="hint">
+              Shortcuts work when focus is not in a bullet field:{' '}
+              <kbd>{navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}</kbd>+<kbd>Z</kbd> undo,{' '}
+              <kbd>{navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}</kbd>+<kbd>⇧</kbd>+<kbd>Z</kbd>{' '}
+              redo (or <kbd>Ctrl</kbd>+<kbd>Y</kbd> on Windows).
+            </p>
+            <div className="icon-row">
+              <button
+                type="button"
+                className="icon-action"
+                disabled={!canUndo}
+                onClick={() => dispatch({ type: 'UNDO' })}
+                aria-label="Undo"
+                title="Undo"
+              >
+                <UndoIcon />
+                <span className="icon-action-label">Undo</span>
+              </button>
+              <button
+                type="button"
+                className="icon-action"
+                disabled={!canRedo}
+                onClick={() => dispatch({ type: 'REDO' })}
+                aria-label="Redo"
+                title="Redo"
+              >
+                <RedoIcon />
+                <span className="icon-action-label">Redo</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
+import { Routes, Route, useParams } from 'react-router-dom';
 import { BulletList } from './components/BulletList';
 import { SettingsPanel } from './components/SettingsPanel';
+import { SharePanel } from './components/SharePanel';
 import { AppStateProvider } from './context/AppStateProvider';
 import { useAppState } from './hooks/useAppState';
 import { useGlobalUndoRedo } from './hooks/useGlobalUndoRedo';
@@ -25,53 +27,76 @@ function GearIcon() {
   );
 }
 
+function ShareIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+      <polyline strokeLinecap="round" strokeLinejoin="round" points="16 6 12 2 8 6" />
+      <line strokeLinecap="round" strokeLinejoin="round" x1="12" y1="2" x2="12" y2="15" />
+    </svg>
+  );
+}
+
 function Shell() {
-  const { state, dispatch } = useAppState();
+  const { state, dispatch, mode } = useAppState();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   useDocumentTitle(state.tree, state.zoomPath);
-  useGlobalUndoRedo(dispatch);
+  useGlobalUndoRedo(dispatch, mode === 'local');
 
   const title = useMemo(() => {
-    if (state.zoomPath.length === 0) return 'Bullet notes';
+    if (state.zoomPath.length === 0) return mode === 'shared' ? 'Shared notes' : 'Bullet notes';
     const id = state.zoomPath[state.zoomPath.length - 1]!;
     const n = findNodeById(state.tree, id);
     const t = (n?.text ?? '').trim();
     return t || 'Untitled';
-  }, [state.tree, state.zoomPath]);
+  }, [mode, state.tree, state.zoomPath]);
 
   return (
     <div className="app-shell">
       <header className="app-header">
-        <nav className="breadcrumbs" aria-label="Zoom trail">
+        <div className="header-top">
+          <nav className="breadcrumbs" aria-label="Zoom trail">
+            <button
+              type="button"
+              className={state.zoomPath.length === 0 ? 'crumb active' : 'crumb'}
+              onClick={() => dispatch({ type: 'ZOOM_TO_LEVEL', level: 0 })}
+            >
+              All
+            </button>
+            {state.zoomPath.map((id, i) => {
+              const n = findNodeById(state.tree, id);
+              const label = (n?.text ?? '').trim() || 'Untitled';
+              const short = label.length > 32 ? `${label.slice(0, 32)}…` : label;
+              const isLast = i === state.zoomPath.length - 1;
+              return (
+                <span key={id} className="crumb-wrap">
+                  <span className="crumb-sep" aria-hidden>
+                    /
+                  </span>
+                  <button
+                    type="button"
+                    className={isLast ? 'crumb active' : 'crumb'}
+                    onClick={() => dispatch({ type: 'ZOOM_TO_LEVEL', level: i + 1 })}
+                  >
+                    {short}
+                  </button>
+                </span>
+              );
+            })}
+          </nav>
+
           <button
             type="button"
-            className={state.zoomPath.length === 0 ? 'crumb active' : 'crumb'}
-            onClick={() => dispatch({ type: 'ZOOM_TO_LEVEL', level: 0 })}
+            className="share-header-btn"
+            aria-label="Share notes"
+            onClick={() => setShareOpen(true)}
           >
-            All
+            <ShareIcon />
+            <span className="share-header-label">Share</span>
           </button>
-          {state.zoomPath.map((id, i) => {
-            const n = findNodeById(state.tree, id);
-            const label = (n?.text ?? '').trim() || 'Untitled';
-            const short = label.length > 32 ? `${label.slice(0, 32)}…` : label;
-            const isLast = i === state.zoomPath.length - 1;
-            return (
-              <span key={id} className="crumb-wrap">
-                <span className="crumb-sep" aria-hidden>
-                  /
-                </span>
-                <button
-                  type="button"
-                  className={isLast ? 'crumb active' : 'crumb'}
-                  onClick={() => dispatch({ type: 'ZOOM_TO_LEVEL', level: i + 1 })}
-                >
-                  {short}
-                </button>
-              </span>
-            );
-          })}
-        </nav>
+        </div>
 
         <h1 className="page-title">{title}</h1>
       </header>
@@ -90,14 +115,25 @@ function Shell() {
       </button>
 
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SharePanel open={shareOpen} onClose={() => setShareOpen(false)} />
     </div>
+  );
+}
+
+function DocumentRoute({ mode }: { mode: 'local' | 'shared' }) {
+  const { shareToken } = useParams();
+  return (
+    <AppStateProvider mode={mode} shareToken={shareToken}>
+      <Shell />
+    </AppStateProvider>
   );
 }
 
 export default function App() {
   return (
-    <AppStateProvider>
-      <Shell />
-    </AppStateProvider>
+    <Routes>
+      <Route path="/" element={<DocumentRoute mode="local" />} />
+      <Route path="/d/:shareToken" element={<DocumentRoute mode="shared" />} />
+    </Routes>
   );
 }
