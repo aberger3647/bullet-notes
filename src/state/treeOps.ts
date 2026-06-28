@@ -1,4 +1,5 @@
 import type { BulletNode } from './types';
+import { parseSearchQuery, nodeMatchesSearchQuery } from '../lib/searchQuery';
 
 export function createNode(partial?: Partial<BulletNode>): BulletNode {
   return {
@@ -58,6 +59,59 @@ export function sanitizeZoomPath(roots: BulletNode[], zoomPath: string[]): strin
     list = n.children;
   }
   return out;
+}
+
+export type SearchMatch = {
+  id: string;
+  text: string;
+  breadcrumb: string[];
+};
+
+/** Zoom path to the parent list containing `id` (empty when `id` is top-level). */
+export function getZoomPathToNode(roots: BulletNode[], id: string): string[] {
+  const visit = (nodes: BulletNode[], ancestors: string[]): string[] | null => {
+    for (const n of nodes) {
+      if (n.id === id) return ancestors;
+      const found = visit(n.children, [...ancestors, n.id]);
+      if (found) return found;
+    }
+    return null;
+  };
+  return visit(roots, []) ?? [];
+}
+
+/** Ids of every node with children in the given forest. */
+export function collectExpandableIds(nodes: BulletNode[]): string[] {
+  const ids: string[] = [];
+  const walk = (list: BulletNode[]) => {
+    for (const n of list) {
+      if (n.children.length > 0) {
+        ids.push(n.id);
+        walk(n.children);
+      }
+    }
+  };
+  walk(nodes);
+  return ids;
+}
+
+export function searchBullets(roots: BulletNode[], query: string): SearchMatch[] {
+  const parsed = parseSearchQuery(query);
+  if (parsed.alternatives.length === 0) return [];
+
+  const results: SearchMatch[] = [];
+  const walk = (nodes: BulletNode[], ancestorNodes: BulletNode[], ancestorLabels: string[]) => {
+    for (const n of nodes) {
+      const text = n.text.trim();
+      if (text && nodeMatchesSearchQuery(n, ancestorNodes, parsed)) {
+        results.push({ id: n.id, text, breadcrumb: ancestorLabels });
+      }
+      const label = text || 'Untitled';
+      walk(n.children, [...ancestorNodes, n], [...ancestorLabels, label]);
+    }
+  };
+  walk(roots, [], []);
+  return results;
 }
 
 export function isDescendantOf(
@@ -129,6 +183,16 @@ export function cloneSubtree(node: BulletNode): BulletNode {
     ...node,
     children: node.children.map(cloneSubtree),
   };
+}
+
+export function insertSiblingBefore(
+  roots: BulletNode[],
+  beforeId: string,
+  newNode: BulletNode,
+): BulletNode[] {
+  const loc = locateNode(roots, beforeId);
+  if (!loc) return roots;
+  return insertIntoSiblings(roots, loc.siblings, loc.index, newNode);
 }
 
 export function insertSiblingAfter(

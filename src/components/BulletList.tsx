@@ -9,7 +9,7 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef } from 'react';
 import { useAppState } from '../hooks/useAppState';
 import type { BulletNode } from '../state/types';
 import { findNodeById } from '../state/treeOps';
@@ -76,27 +76,8 @@ function OutlineRows({ nodes, expanded, onToggleExpand, onEnsureExpanded }: Outl
 }
 
 export function BulletList() {
-  const { visibleChildren, dispatch, state } = useAppState();
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const { visibleChildren, dispatch, state, expanded, toggleExpand, ensureExpanded } = useAppState();
   const hoverExpand = useRef<{ overId: string; timer: ReturnType<typeof setTimeout> } | null>(null);
-
-  const onToggleExpand = useCallback((id: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const onEnsureExpanded = useCallback((id: string) => {
-    setExpanded((prev) => {
-      if (prev.has(id)) return prev;
-      const next = new Set(prev);
-      next.add(id);
-      return next;
-    });
-  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -136,7 +117,7 @@ export function BulletList() {
     if (hoverExpand.current?.overId === overId) return;
     if (hoverExpand.current) clearTimeout(hoverExpand.current.timer);
 
-    const timer = setTimeout(() => onEnsureExpanded(overId), 250);
+    const timer = setTimeout(() => ensureExpanded(overId), 250);
     hoverExpand.current = { overId, timer };
   };
 
@@ -161,8 +142,8 @@ export function BulletList() {
         <OutlineRows
           nodes={visibleChildren}
           expanded={expanded}
-          onToggleExpand={onToggleExpand}
-          onEnsureExpanded={onEnsureExpanded}
+          onToggleExpand={toggleExpand}
+          onEnsureExpanded={ensureExpanded}
         />
       </div>
     </DndContext>

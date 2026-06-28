@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { appReducer, initialAppState } from '../state/reducer';
 import type { AppAction, AppState, BulletNode, PersistedState } from '../state/types';
-import { getChildrenForZoom, sanitizeZoomPath } from '../state/treeOps';
+import { getChildrenForZoom, sanitizeZoomPath, collectExpandableIds } from '../state/treeOps';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { createSharedDocument, useDocumentSync } from '../sync/useDocumentSync';
 import type { SyncConnectionStatus } from '../sync/syncTypes';
@@ -33,6 +33,7 @@ type Props = {
 
 export function AppStateProvider({ children, mode, shareToken }: Props) {
   const [state, dispatch] = useReducer(appReducer, initialAppState);
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [persistReady, setPersistReady] = useState(mode === 'local');
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isRemoteRef = useRef(false);
@@ -136,6 +137,33 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
     return createSharedDocument(state.tree);
   }, [state.tree]);
 
+  const toggleExpand = useCallback((id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const ensureExpanded = useCallback((id: string) => {
+    setExpanded((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }, []);
+
+  const expandAll = useCallback(() => {
+    const nodes = getChildrenForZoom(state.tree, state.zoomPath);
+    setExpanded(new Set(collectExpandableIds(nodes)));
+  }, [state.tree, state.zoomPath]);
+
+  const collapseAll = useCallback(() => {
+    setExpanded(new Set());
+  }, []);
+
   const visibleChildren = useMemo(() => getVisibleForView(state), [state]);
 
   const resolvedSyncStatus: SyncConnectionStatus =
@@ -146,6 +174,11 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
       state,
       dispatch: wrappedDispatch,
       visibleChildren,
+      expanded,
+      toggleExpand,
+      ensureExpanded,
+      expandAll,
+      collapseAll,
       mode,
       shareToken,
       syncStatus: resolvedSyncStatus,
@@ -156,6 +189,11 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
       state,
       wrappedDispatch,
       visibleChildren,
+      expanded,
+      toggleExpand,
+      ensureExpanded,
+      expandAll,
+      collapseAll,
       mode,
       shareToken,
       resolvedSyncStatus,

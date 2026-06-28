@@ -8,6 +8,11 @@ export type AppStateContextValue = {
   state: AppState;
   dispatch: Dispatch<AppAction>;
   visibleChildren: BulletNode[];
+  expanded: Set<string>;
+  toggleExpand: (id: string) => void;
+  ensureExpanded: (id: string) => void;
+  expandAll: () => void;
+  collapseAll: () => void;
   mode: AppMode;
   shareToken?: string;
   syncStatus: SyncConnectionStatus;

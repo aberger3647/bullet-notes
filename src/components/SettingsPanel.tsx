@@ -24,18 +24,18 @@ function MoonIcon() {
 
 function UndoIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 14 4 9l5-5" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M20 20a8 8 0 0 0-8-8H4" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M19 12H5" />
+      <path d="M12 19 5 12 12 5" />
     </svg>
   );
 }
 
 function RedoIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="m15 14 5-5-5-5" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 20a8 8 0 0 1 8-8h8" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M5 12h14" />
+      <path d="M12 5l7 7-7 7" />
     </svg>
   );
 }
@@ -71,7 +71,7 @@ function Switch({
 }
 
 export function SettingsPanel({ open, onClose }: Props) {
-  const { state, dispatch, mode } = useAppState();
+  const { state, dispatch, mode, expandAll, collapseAll } = useAppState();
   const canUndo = state.history.past.length > 0;
   const canRedo = state.history.future.length > 0;
   const isShared = mode === 'shared';
@@ -111,6 +111,14 @@ export function SettingsPanel({ open, onClose }: Props) {
             onChange={(next) => dispatch({ type: 'SET_HIDE_COMPLETED', value: next })}
             label="Hide completed bullets"
           />
+          <div className="icon-row outline-actions">
+            <button type="button" className="icon-action" onClick={expandAll}>
+              Expand all
+            </button>
+            <button type="button" className="icon-action" onClick={collapseAll}>
+              Collapse all
+            </button>
+          </div>
         </div>
 
         {isShared ? (

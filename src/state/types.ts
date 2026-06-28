@@ -37,6 +37,8 @@ export type PersistedState = {
 export type AppAction =
   | { type: 'HYDRATE'; payload: PersistedState }
   | { type: 'NEW_SIBLING_AFTER'; afterId: string; newId?: string }
+  | { type: 'NEW_SIBLING_BEFORE'; beforeId: string; newId?: string }
+  | { type: 'APPEND_CHILD'; parentId: string; newId?: string }
   | { type: 'INDENT'; id: string }
   | { type: 'OUTDENT'; id: string }
   | { type: 'TOGGLE_COMPLETE'; id: string }
@@ -45,6 +47,7 @@ export type AppAction =
   | { type: 'ZOOM_INTO'; id: string; newChildId?: string }
   | { type: 'ZOOM_BACK' }
   | { type: 'ZOOM_TO_LEVEL'; level: number }
+  | { type: 'NAVIGATE_TO_BULLET'; id: string }
   | { type: 'SET_HIDE_COMPLETED'; value: boolean }
   | { type: 'SET_THEME'; value: Settings['theme'] }
   | { type: 'UNDO' }

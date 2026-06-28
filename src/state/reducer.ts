@@ -3,14 +3,17 @@ import { MAX_HISTORY } from './types';
 import {
   createNode,
   appendChild,
+  findNodeById,
   indentNode,
   insertSiblingAfter,
+  insertSiblingBefore,
   locateNode,
   moveAsChild,
   moveBeforeSibling,
   outdentNode,
   reorderSiblings,
   sanitizeZoomPath,
+  getZoomPathToNode,
   setNodeText,
   toggleComplete,
 } from './treeOps';
@@ -125,6 +128,25 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       if (nextTree === state.tree) return state;
       return withCommit(state, { tree: nextTree, focusedId: fresh.id });
     }
+    case 'NEW_SIBLING_BEFORE': {
+      const fresh = action.newId
+        ? createNode({ id: action.newId, text: '' })
+        : createNode({ text: '' });
+      const nextTree = insertSiblingBefore(state.tree, action.beforeId, fresh);
+      if (nextTree === state.tree) return state;
+      return withCommit(state, { tree: nextTree, focusedId: fresh.id });
+    }
+    case 'APPEND_CHILD': {
+      const fresh = action.newId
+        ? createNode({ id: action.newId, text: '' })
+        : createNode({ text: '' });
+      const nextTree =
+        action.parentId === '__root__'
+          ? [...state.tree, fresh]
+          : appendChild(state.tree, action.parentId, fresh);
+      if (nextTree === state.tree) return state;
+      return withCommit(state, { tree: nextTree, focusedId: fresh.id });
+    }
     case 'INDENT': {
       const nextTree = indentNode(state.tree, action.id);
       if (nextTree === state.tree) return state;
@@ -162,6 +184,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         nextPath.every((id, i) => id === state.zoomPath[i]);
       if (same) return state;
       return withCommit(state, { zoomPath: nextPath, focusedId: null });
+    }
+    case 'NAVIGATE_TO_BULLET': {
+      if (!findNodeById(state.tree, action.id)) return state;
+      const zoomPath = getZoomPathToNode(state.tree, action.id);
+      return withCommit(state, { zoomPath, focusedId: action.id });
     }
     case 'MOVE_NODE': {
       const { activeId, overId, nest } = action;

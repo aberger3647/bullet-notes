@@ -1,13 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Routes, Route, useParams } from 'react-router-dom';
 import { BulletList } from './components/BulletList';
+import { SearchPanel } from './components/SearchPanel';
 import { SettingsPanel } from './components/SettingsPanel';
 import { SharePanel } from './components/SharePanel';
 import { AppStateProvider } from './context/AppStateProvider';
 import { useAppState } from './hooks/useAppState';
 import { useGlobalUndoRedo } from './hooks/useGlobalUndoRedo';
 import { useDocumentTitle } from './hooks/useDocumentTitle';
-import { findNodeById } from './state/treeOps';
+import { findNodeById, getChildrenForZoom } from './state/treeOps';
 import './App.css';
 
 function GearIcon() {
@@ -27,6 +28,24 @@ function GearIcon() {
   );
 }
 
+function PlusIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <line strokeLinecap="round" x1="12" y1="5" x2="12" y2="19" />
+      <line strokeLinecap="round" x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <circle cx="11" cy="11" r="7" />
+      <line strokeLinecap="round" x1="16.5" y1="16.5" x2="21" y2="21" />
+    </svg>
+  );
+}
+
 function ShareIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -41,17 +60,53 @@ function Shell() {
   const { state, dispatch, mode } = useAppState();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   useDocumentTitle(state.tree, state.zoomPath);
   useGlobalUndoRedo(dispatch, mode === 'local');
 
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (settingsOpen || shareOpen) return;
+
+      const target = e.target as HTMLElement;
+      if (!searchOpen && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+
+      e.preventDefault();
+      setSearchOpen((open) => !open);
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [settingsOpen, shareOpen, searchOpen]);
+
   const title = useMemo(() => {
-    if (state.zoomPath.length === 0) return mode === 'shared' ? 'Shared notes' : 'Bullet notes';
+    if (state.zoomPath.length === 0) return null;
     const id = state.zoomPath[state.zoomPath.length - 1]!;
     const n = findNodeById(state.tree, id);
     const t = (n?.text ?? '').trim();
     return t || 'Untitled';
-  }, [mode, state.tree, state.zoomPath]);
+  }, [state.tree, state.zoomPath]);
+
+  const addBullet = () => {
+    const newId = crypto.randomUUID();
+    const siblings = getChildrenForZoom(state.tree, state.zoomPath);
+
+    if (siblings.length > 0) {
+      const firstId = siblings[0]!.id;
+      dispatch({ type: 'NEW_SIBLING_BEFORE', beforeId: firstId, newId });
+      return;
+    }
+
+    if (state.zoomPath.length > 0) {
+      const parentId = state.zoomPath[state.zoomPath.length - 1]!;
+      dispatch({ type: 'APPEND_CHILD', parentId, newId });
+      return;
+    }
+
+    dispatch({ type: 'APPEND_CHILD', parentId: '__root__', newId });
+  };
 
   return (
     <div className="app-shell">
@@ -63,7 +118,7 @@ function Shell() {
               className={state.zoomPath.length === 0 ? 'crumb active' : 'crumb'}
               onClick={() => dispatch({ type: 'ZOOM_TO_LEVEL', level: 0 })}
             >
-              All
+              Home
             </button>
             {state.zoomPath.map((id, i) => {
               const n = findNodeById(state.tree, id);
@@ -98,12 +153,31 @@ function Shell() {
           </button>
         </div>
 
-        <h1 className="page-title">{title}</h1>
+        {title !== null && <h1 className="page-title">{title}</h1>}
+
+        <button
+          type="button"
+          className="search-bar"
+          aria-label="Open search"
+          onClick={() => setSearchOpen(true)}
+        >
+          <SearchIcon />
+          <span>Search notes…</span>
+        </button>
       </header>
 
       <main className="app-main">
         <BulletList />
       </main>
+
+      <button
+        type="button"
+        className="add-bullet-fab"
+        aria-label="Add bullet"
+        onClick={addBullet}
+      >
+        <PlusIcon />
+      </button>
 
       <button
         type="button"
@@ -114,6 +188,7 @@ function Shell() {
         <GearIcon />
       </button>
 
+      <SearchPanel open={searchOpen} onClose={() => setSearchOpen(false)} />
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <SharePanel open={shareOpen} onClose={() => setShareOpen(false)} />
     </div>

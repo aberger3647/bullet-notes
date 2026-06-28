@@ -5,7 +5,7 @@ import type { BulletNode } from '../state/types';
 export function useDocumentTitle(tree: BulletNode[], zoomPath: string[]) {
   useEffect(() => {
     if (zoomPath.length === 0) {
-      document.title = 'Bullet notes';
+      document.title = 'Home';
       return;
     }
     const id = zoomPath[zoomPath.length - 1]!;

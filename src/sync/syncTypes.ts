@@ -11,6 +11,8 @@ export type SyncConnectionStatus = 'idle' | 'loading' | 'connected' | 'reconnect
 const SYNCABLE_TYPES = new Set<AppAction['type']>([
   'SET_TEXT',
   'NEW_SIBLING_AFTER',
+  'NEW_SIBLING_BEFORE',
+  'APPEND_CHILD',
   'INDENT',
   'OUTDENT',
   'TOGGLE_COMPLETE',
