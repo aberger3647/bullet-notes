@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Routes, Route, useParams } from 'react-router-dom';
 import { BulletList } from './components/BulletList';
-import { SearchPanel } from './components/SearchPanel';
+import { DocsPage } from './components/DocsPage';
 import { SettingsPanel } from './components/SettingsPanel';
 import { SharePanel } from './components/SharePanel';
 import { AppStateProvider } from './context/AppStateProvider';
@@ -37,15 +37,6 @@ function PlusIcon() {
   );
 }
 
-function SearchIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <circle cx="11" cy="11" r="7" />
-      <line strokeLinecap="round" x1="16.5" y1="16.5" x2="21" y2="21" />
-    </svg>
-  );
-}
-
 function ShareIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -60,26 +51,9 @@ function Shell() {
   const { state, dispatch, mode } = useAppState();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
 
   useDocumentTitle(state.tree, state.zoomPath);
   useGlobalUndoRedo(dispatch, mode === 'local');
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      if (settingsOpen || shareOpen) return;
-
-      const target = e.target as HTMLElement;
-      if (!searchOpen && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
-
-      e.preventDefault();
-      setSearchOpen((open) => !open);
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [settingsOpen, shareOpen, searchOpen]);
 
   const title = useMemo(() => {
     if (state.zoomPath.length === 0) return null;
@@ -154,16 +128,6 @@ function Shell() {
         </div>
 
         {title !== null && <h1 className="page-title">{title}</h1>}
-
-        <button
-          type="button"
-          className="search-bar"
-          aria-label="Open search"
-          onClick={() => setSearchOpen(true)}
-        >
-          <SearchIcon />
-          <span>Search notes…</span>
-        </button>
       </header>
 
       <main className="app-main">
@@ -188,7 +152,6 @@ function Shell() {
         <GearIcon />
       </button>
 
-      <SearchPanel open={searchOpen} onClose={() => setSearchOpen(false)} />
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <SharePanel open={shareOpen} onClose={() => setShareOpen(false)} />
     </div>
@@ -207,6 +170,7 @@ function DocumentRoute({ mode }: { mode: 'local' | 'shared' }) {
 export default function App() {
   return (
     <Routes>
+      <Route path="/docs" element={<DocsPage />} />
       <Route path="/" element={<DocumentRoute mode="local" />} />
       <Route path="/d/:shareToken" element={<DocumentRoute mode="shared" />} />
     </Routes>

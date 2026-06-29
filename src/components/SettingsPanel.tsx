@@ -1,4 +1,6 @@
+import { useNavigate } from 'react-router-dom';
 import { useAppState } from '../hooks/useAppState';
+import { SearchSection } from './SearchSection';
 
 type Props = {
   open: boolean;
@@ -40,6 +42,23 @@ function RedoIcon() {
   );
 }
 
+function BookIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 18l6-6-6-6" />
+    </svg>
+  );
+}
+
 function Switch({
   checked,
   onChange,
@@ -71,6 +90,7 @@ function Switch({
 }
 
 export function SettingsPanel({ open, onClose }: Props) {
+  const navigate = useNavigate();
   const { state, dispatch, mode, expandAll, collapseAll } = useAppState();
   const canUndo = state.history.past.length > 0;
   const canRedo = state.history.future.length > 0;
@@ -92,6 +112,11 @@ export function SettingsPanel({ open, onClose }: Props) {
           <button type="button" className="icon-btn" onClick={onClose} aria-label="Close settings">
             ✕
           </button>
+        </div>
+
+        <div className="settings-section">
+          <h3>Search</h3>
+          <SearchSection onNavigate={onClose} />
         </div>
 
         <div className="settings-section">
@@ -163,6 +188,24 @@ export function SettingsPanel({ open, onClose }: Props) {
             </div>
           </div>
         )}
+
+        <div className="settings-section">
+          <h3>Help</h3>
+          <button
+            type="button"
+            className="settings-nav-link"
+            onClick={() => {
+              onClose();
+              navigate('/docs');
+            }}
+          >
+            <span className="settings-nav-link-label">
+              <BookIcon />
+              Documentation
+            </span>
+            <ChevronRightIcon />
+          </button>
+        </div>
       </div>
     </div>
   );

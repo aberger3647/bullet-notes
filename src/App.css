@@ -248,66 +248,7 @@
   word-break: break-word;
 }
 
-.search-bar {
-  width: 100%;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-  padding: 0.5rem 0.65rem;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  color: var(--muted);
-  font: inherit;
-  font-size: 0.9rem;
-  text-align: left;
-  cursor: pointer;
-}
-
-.search-bar:hover {
-  background: var(--hover);
-  color: var(--fg);
-}
-
-.search-bar:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-}
-
-.search-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.35);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 2rem 1rem;
-  z-index: 55;
-}
-
-.search-panel {
-  width: min(480px, 100%);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 1rem 1.1rem 1.15rem;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
-}
-
-.search-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.75rem;
-}
-
-.search-panel-header h2 {
-  margin: 0;
-  font-size: 1.1rem;
-}
-
-.search-panel .search-results {
+.settings-panel .search-results {
   max-height: 16rem;
 }
 
@@ -724,4 +665,186 @@ kbd {
 
 .btn-row {
   display: none;
+}
+
+.settings-nav-link {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.6rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  cursor: pointer;
+  font: inherit;
+  color: var(--fg);
+}
+
+.settings-nav-link:hover {
+  background: var(--hover);
+}
+
+.settings-nav-link:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.settings-nav-link-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.settings-nav-link-label svg {
+  color: var(--muted);
+}
+
+.docs-shell {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+.docs-header {
+  margin-bottom: 1.5rem;
+}
+
+.docs-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: none;
+  background: transparent;
+  color: var(--link);
+  font: inherit;
+  font-size: 0.88rem;
+  padding: 0.25rem 0.35rem;
+  margin: 0 0 0.75rem -0.35rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.docs-back:hover {
+  background: var(--hover);
+}
+
+.docs-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.65rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.docs-lead {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.docs-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1.75rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.docs-toc-link {
+  font-size: 0.82rem;
+  color: var(--link);
+  text-decoration: none;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.docs-toc-link:hover {
+  background: var(--hover);
+}
+
+.docs-shortcuts {
+  margin-bottom: 2rem;
+}
+
+.docs-section-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+.docs-shortcut-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.5rem;
+}
+
+.docs-shortcut-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.docs-shortcut-keys {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.docs-key-sep {
+  color: var(--muted);
+  font-size: 0.75rem;
+  margin: 0 0.1rem;
+}
+
+.docs-shortcut-action {
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.docs-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.docs-section {
+  scroll-margin-top: 1rem;
+}
+
+.docs-section-body {
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--fg);
+}
+
+.docs-section-body p {
+  margin: 0 0 0.65rem;
+}
+
+.docs-section-body p:last-child {
+  margin-bottom: 0;
+}
+
+.docs-list {
+  margin: 0 0 0.65rem;
+  padding-left: 1.25rem;
+}
+
+.docs-list li {
+  margin-bottom: 0.35rem;
+}
+
+.docs-list li:last-child {
+  margin-bottom: 0;
 }
