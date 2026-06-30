@@ -225,6 +225,16 @@ Bullet Notes requires a **Google account** to use. Sign in is required for all r
 
 Supabase must be configured (`VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`), and Google OAuth must be enabled in the Supabase dashboard.
 
+### OAuth redirect URLs
+
+| Setting | Value |
+|---------|-------|
+| Google Cloud → authorized redirect URI | `https://<project-ref>.supabase.co/auth/v1/callback` |
+| Supabase → Site URL | `https://honeydew.csbod.com` |
+| Supabase → Redirect URLs | `http://localhost:5173/**`, `https://honeydew.csbod.com/**` |
+
+After sign-in, you are returned to the page you were on (including shared links like `https://honeydew.csbod.com/d/:shareToken`).
+
 ---
 
 ## Cloud Storage
@@ -257,7 +267,7 @@ Click the icon again on an already-shared bullet to re-open the share sheet with
 
 ### Shared document URL
 
-Shared bullets live at `/d/:shareToken`, where `shareToken` is a unique UUID. Anyone with the link who is **signed in with Google** can **view and edit** that subtree in real time.
+Shared bullets live at `https://honeydew.csbod.com/d/:shareToken`, where `shareToken` is a unique UUID. Anyone with the link who is **signed in with Google** can **view and edit** that subtree in real time.
 
 ### How collaboration works
 
@@ -298,7 +308,7 @@ All routes require Google sign-in.
 | `/d/:shareToken` | Shared | A single shared bullet subtree loaded from Supabase |
 | `/docs` | Help | In-app documentation (open from Settings → Help) |
 
-The app uses client-side routing (React Router). Netlify and similar hosts should redirect all paths to `index.html` for SPA support.
+The app is hosted at [honeydew.csbod.com](https://honeydew.csbod.com) and uses client-side routing (React Router). Netlify and similar hosts should redirect all paths to `index.html` for SPA support.
 
 ---
 

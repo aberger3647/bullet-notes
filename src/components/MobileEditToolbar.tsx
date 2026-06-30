@@ -1,10 +1,17 @@
 import { useMemo, useState } from 'react';
 import { useAppState } from '../hooks/useAppState';
 import { useVisualViewportBottom } from '../hooks/useVisualViewportBottom';
+import { openShareSheet, shareUrl } from '../lib/shareNode';
 import { findNodeById, locateNode } from '../state/treeOps';
 
-function preventBlur(e: React.PointerEvent) {
+function toolbarPointerAction(
+  e: React.PointerEvent,
+  keepEditingBullet: () => void,
+  action: () => void,
+) {
   e.preventDefault();
+  keepEditingBullet();
+  action();
 }
 
 function IndentIcon() {
@@ -53,7 +60,10 @@ export function MobileEditToolbar() {
     editingBulletId,
     editingIndentParentId,
     ensureExpanded,
-    shareNode,
+    shareNodeFromGesture,
+    getPendingShareToken,
+    completeShareForBullet,
+    keepEditingBullet,
   } = useAppState();
   const keyboardBottom = useVisualViewportBottom();
   const [shareBusy, setShareBusy] = useState(false);
@@ -73,10 +83,13 @@ export function MobileEditToolbar() {
 
   if (!editingBulletId || !node) return null;
 
+  const indentParentId =
+    loc && loc.index > 0 ? loc.siblings[loc.index - 1]!.id : editingIndentParentId;
+
   const onIndent = () => {
     if (!canIndent) return;
     dispatch({ type: 'INDENT', id: editingBulletId });
-    if (editingIndentParentId) ensureExpanded(editingIndentParentId);
+    if (indentParentId) ensureExpanded(indentParentId);
   };
 
   const onOutdent = () => {
@@ -91,9 +104,29 @@ export function MobileEditToolbar() {
   const onShare = () => {
     if (shareBusy) return;
     setShareBusy(true);
-    void shareNode(editingBulletId)
+    void shareNodeFromGesture(editingBulletId)
       .catch(() => {})
       .finally(() => setShareBusy(false));
+  };
+
+  const onSharePointerDown = (e: React.PointerEvent) => {
+    e.preventDefault();
+    keepEditingBullet();
+    if (shareBusy) return;
+
+    const token = getPendingShareToken(editingBulletId);
+    if (token) {
+      setShareBusy(true);
+      const url = shareUrl(token);
+      const title = `${(node.text.trim() || 'Shared bullet')} — Bullet Notes`;
+      void openShareSheet(title, url)
+        .then((result) => completeShareForBullet(editingBulletId, token, result))
+        .catch(() => {})
+        .finally(() => setShareBusy(false));
+      return;
+    }
+
+    onShare();
   };
 
   return (
@@ -108,8 +141,7 @@ export function MobileEditToolbar() {
         className="mobile-edit-toolbar-btn"
         aria-label="Indent"
         disabled={!canIndent}
-        onPointerDown={preventBlur}
-        onClick={onIndent}
+        onPointerDown={(e) => toolbarPointerAction(e, keepEditingBullet, onIndent)}
       >
         <IndentIcon />
         <span className="mobile-edit-toolbar-label">Indent</span>
@@ -120,8 +152,7 @@ export function MobileEditToolbar() {
         className="mobile-edit-toolbar-btn"
         aria-label="Outdent"
         disabled={!canOutdent}
-        onPointerDown={preventBlur}
-        onClick={onOutdent}
+        onPointerDown={(e) => toolbarPointerAction(e, keepEditingBullet, onOutdent)}
       >
         <OutdentIcon />
         <span className="mobile-edit-toolbar-label">Outdent</span>
@@ -132,8 +163,7 @@ export function MobileEditToolbar() {
         className={`mobile-edit-toolbar-btn ${isCompleted ? 'mobile-edit-toolbar-btn--active' : ''}`}
         aria-label={isCompleted ? 'Mark incomplete' : 'Mark complete'}
         aria-pressed={isCompleted}
-        onPointerDown={preventBlur}
-        onClick={onComplete}
+        onPointerDown={(e) => toolbarPointerAction(e, keepEditingBullet, onComplete)}
       >
         <CheckIcon />
         <span className="mobile-edit-toolbar-label">Done</span>
@@ -144,8 +174,7 @@ export function MobileEditToolbar() {
         className={`mobile-edit-toolbar-btn ${isShared ? 'mobile-edit-toolbar-btn--active' : ''}`}
         aria-label={isShared ? 'Shared — tap to share link' : 'Share'}
         disabled={shareBusy}
-        onPointerDown={preventBlur}
-        onClick={onShare}
+        onPointerDown={onSharePointerDown}
       >
         <UsersIcon />
         <span className="mobile-edit-toolbar-label">Share</span>

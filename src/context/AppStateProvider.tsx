@@ -18,7 +18,7 @@ import {
   extractSharedSubtree,
 } from '../state/treeOps';
 import { isSupabaseConfigured } from '../lib/supabase';
-import { openShareSheet, shareUrl } from '../lib/shareNode';
+import { openShareSheet, shareUrl, type ShareResult } from '../lib/shareNode';
 import { createSharedDocument, useDocumentSync } from '../sync/useDocumentSync';
 import { useSharedSubtreeSync } from '../sync/useSharedSubtreeSync';
 import { useUserDocumentSync } from '../sync/useUserDocumentSync';
@@ -62,6 +62,8 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
   const [editingBulletId, setEditingBulletId] = useState<string | null>(null);
   const [editingIndentParentId, setEditingIndentParentId] = useState<string | undefined>(undefined);
   const shareMessageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingShareTokens = useRef(new Map<string, string>());
+  const pendingSharePromises = useRef(new Map<string, Promise<string>>());
   const isRemoteRef = useRef(false);
   const broadcastRef = useRef<(action: AppAction) => void>(() => {});
   const subtreeBroadcastRef = useRef<(action: AppAction) => void>(() => {});
@@ -157,40 +159,113 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
     [isShared, isLocal],
   );
 
+  const showShareToast = useCallback((msg: string | null, durationMs = 2500) => {
+    if (shareMessageTimer.current) clearTimeout(shareMessageTimer.current);
+    setShareMessage(msg);
+    if (msg) {
+      shareMessageTimer.current = setTimeout(() => setShareMessage(null), durationMs);
+    }
+  }, []);
+
+  const commitShareResult = useCallback(
+    (id: string, token: string, result: ShareResult) => {
+      if (result === 'shared' || result === 'copied') {
+        const node = findNodeById(treeRef.current, id);
+        if (node && !node.shareToken) {
+          dispatch({ type: 'SET_NODE_SHARE', id, shareToken: token });
+        }
+        pendingShareTokens.current.delete(id);
+        showShareToast(result === 'copied' ? 'Link copied to clipboard' : null);
+      }
+    },
+    [showShareToast],
+  );
+
+  const ensureShareToken = useCallback(async (id: string): Promise<string> => {
+    const node = findNodeById(treeRef.current, id);
+    if (!node) throw new Error('Bullet not found');
+    if (node.shareToken) return node.shareToken;
+
+    const pending = pendingShareTokens.current.get(id);
+    if (pending) return pending;
+
+    const existing = pendingSharePromises.current.get(id);
+    if (existing) return existing;
+
+    const promise = (async () => {
+      const subtree = extractSharedSubtree(treeRef.current, id);
+      const token = await createSharedDocument(subtree);
+      pendingShareTokens.current.set(id, token);
+      pendingSharePromises.current.delete(id);
+      return token;
+    })();
+    pendingSharePromises.current.set(id, promise);
+    return promise;
+  }, []);
+
+  const getPendingShareToken = useCallback((id: string): string | undefined => {
+    const node = findNodeById(treeRef.current, id);
+    if (node?.shareToken) return node.shareToken;
+    return pendingShareTokens.current.get(id);
+  }, []);
+
+  const openShareForBullet = useCallback(
+    async (id: string, token: string) => {
+      const node = findNodeById(treeRef.current, id);
+      if (!node) return;
+      const url = shareUrl(token);
+      const title = `${(node.text.trim() || 'Shared bullet')} — Bullet Notes`;
+      const result = await openShareSheet(title, url);
+      commitShareResult(id, token, result);
+    },
+    [commitShareResult],
+  );
+
   const shareNode = useCallback(async (id: string) => {
     if (!isSupabaseConfigured()) {
-      const msg = 'Sharing is not configured. Add Supabase env vars and rebuild.';
-      setShareMessage(msg);
-      if (shareMessageTimer.current) clearTimeout(shareMessageTimer.current);
-      shareMessageTimer.current = setTimeout(() => setShareMessage(null), 3000);
+      showShareToast('Sharing is not configured. Add Supabase env vars and rebuild.', 3000);
       return;
     }
     const node = findNodeById(treeRef.current, id);
     if (!node) return;
 
     try {
-      let token = node.shareToken;
-      if (!token) {
-        const subtree = extractSharedSubtree(treeRef.current, id);
-        token = await createSharedDocument(subtree);
-        dispatch({ type: 'SET_NODE_SHARE', id, shareToken: token });
-      }
-
-      const url = shareUrl(token);
-      const title = `${(node.text.trim() || 'Shared bullet')} — Bullet Notes`;
-      const result = await openShareSheet(title, url);
-
-      if (shareMessageTimer.current) clearTimeout(shareMessageTimer.current);
-      setShareMessage(result === 'copied' ? 'Link copied to clipboard' : null);
-      if (result === 'copied') {
-        shareMessageTimer.current = setTimeout(() => setShareMessage(null), 2500);
-      }
+      const token = await ensureShareToken(id);
+      await openShareForBullet(id, token);
     } catch {
-      if (shareMessageTimer.current) clearTimeout(shareMessageTimer.current);
-      setShareMessage('Could not share. Try again.');
-      shareMessageTimer.current = setTimeout(() => setShareMessage(null), 3000);
+      showShareToast('Could not share. Try again.', 3000);
     }
-  }, []);
+  }, [ensureShareToken, openShareForBullet, showShareToast]);
+
+  const shareNodeFromGesture = useCallback(
+    async (id: string) => {
+      if (!isSupabaseConfigured()) {
+        showShareToast('Sharing is not configured. Add Supabase env vars and rebuild.', 3000);
+        return;
+      }
+      const node = findNodeById(treeRef.current, id);
+      if (!node) return;
+
+      const token = getPendingShareToken(id);
+      if (token) {
+        try {
+          await openShareForBullet(id, token);
+        } catch {
+          showShareToast('Could not share. Try again.', 3000);
+        }
+        return;
+      }
+
+      showShareToast('Preparing link…', 3000);
+      try {
+        const prepared = await ensureShareToken(id);
+        await openShareForBullet(id, prepared);
+      } catch {
+        showShareToast('Could not share. Try again.', 3000);
+      }
+    },
+    [ensureShareToken, getPendingShareToken, openShareForBullet, showShareToast],
+  );
 
   const toggleExpand = useCallback((id: string) => {
     setExpanded((prev) => {
@@ -219,15 +294,46 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
     setExpanded(new Set());
   }, []);
 
-  const setEditingBullet = useCallback((id: string, indentParentId?: string) => {
-    setEditingBulletId(id);
-    setEditingIndentParentId(indentParentId);
+  const clearEditingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const keepEditingBullet = useCallback(() => {
+    if (clearEditingTimerRef.current) {
+      clearTimeout(clearEditingTimerRef.current);
+      clearEditingTimerRef.current = null;
+    }
   }, []);
 
-  const clearEditingBullet = useCallback(() => {
-    setEditingBulletId(null);
-    setEditingIndentParentId(undefined);
+  const scheduleClearEditingBullet = useCallback(() => {
+    if (clearEditingTimerRef.current) clearTimeout(clearEditingTimerRef.current);
+    clearEditingTimerRef.current = setTimeout(() => {
+      clearEditingTimerRef.current = null;
+      setEditingBulletId(null);
+      setEditingIndentParentId(undefined);
+    }, 200);
   }, []);
+
+  const setEditingBullet = useCallback((id: string, indentParentId?: string) => {
+    keepEditingBullet();
+    setEditingBulletId(id);
+    setEditingIndentParentId(indentParentId);
+  }, [keepEditingBullet]);
+
+  useEffect(() => {
+    if (!editingBulletId || isShared || !isSupabaseConfigured()) return;
+    if (!window.matchMedia('(hover: none)').matches) return;
+    const node = findNodeById(treeRef.current, editingBulletId);
+    if (!node || node.shareToken) return;
+    if (pendingShareTokens.current.has(editingBulletId)) return;
+    if (pendingSharePromises.current.has(editingBulletId)) return;
+    void ensureShareToken(editingBulletId).catch(() => {});
+  }, [editingBulletId, isShared, ensureShareToken]);
+
+  useEffect(
+    () => () => {
+      if (clearEditingTimerRef.current) clearTimeout(clearEditingTimerRef.current);
+    },
+    [],
+  );
 
   const visibleChildren = useMemo(() => getVisibleForView(state), [state]);
 
@@ -254,11 +360,15 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
       syncStatus: resolvedSyncStatus,
       otherEditors,
       shareNode,
+      shareNodeFromGesture,
+      getPendingShareToken,
+      completeShareForBullet: commitShareResult,
       shareMessage,
       editingBulletId,
       editingIndentParentId,
       setEditingBullet,
-      clearEditingBullet,
+      scheduleClearEditingBullet,
+      keepEditingBullet,
     }),
     [
       state,
@@ -274,11 +384,15 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
       resolvedSyncStatus,
       otherEditors,
       shareNode,
+      shareNodeFromGesture,
+      getPendingShareToken,
+      commitShareResult,
       shareMessage,
       editingBulletId,
       editingIndentParentId,
       setEditingBullet,
-      clearEditingBullet,
+      scheduleClearEditingBullet,
+      keepEditingBullet,
     ],
   );
 

@@ -2,6 +2,8 @@
 
 **A simple hierarchical bullet note app for fast outlining, nesting, completing, and zooming into ideas.**
 
+Live at [honeydew.csbod.com](https://honeydew.csbod.com)
+
 ---
 
 ## 📚 Overview
@@ -83,9 +85,11 @@ For automatic schema migrations on deploy, also set `SUPABASE_DB_URL` (see `.env
 
 1. Create a Supabase project.
 2. Enable **Google** under Authentication → Providers.
-3. In Google Cloud Console, create OAuth credentials with redirect URI:
+3. In Google Cloud Console, set the authorized redirect URI to:
    `https://<project-ref>.supabase.co/auth/v1/callback`
-4. Add redirect URLs in Supabase Auth settings: `http://localhost:5173/` and your production URL.
+4. In Supabase → Authentication → URL Configuration:
+   - **Site URL:** `https://honeydew.csbod.com`
+   - **Redirect URLs:** `http://localhost:5173/**` and `https://honeydew.csbod.com/**`
 
 ### Run locally
 

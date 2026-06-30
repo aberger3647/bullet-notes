@@ -34,7 +34,7 @@ export function BulletRow({
   onEnsureExpanded,
   childRegionId,
 }: BulletRowProps) {
-  const { state, dispatch, shareNode, setEditingBullet, clearEditingBullet } = useAppState();
+  const { state, dispatch, shareNode, setEditingBullet, scheduleClearEditingBullet } = useAppState();
   const inputRef = useRef<HTMLInputElement>(null);
   const [shareBusy, setShareBusy] = useState(false);
 
@@ -166,7 +166,7 @@ export function BulletRow({
         onChange={(e) => dispatch({ type: 'SET_TEXT', id: node.id, text: e.target.value })}
         onKeyDown={onKeyDown}
         onFocus={() => setEditingBullet(node.id, indentParentId)}
-        onBlur={() => clearEditingBullet()}
+        onBlur={() => scheduleClearEditingBullet()}
         aria-label="Bullet text"
       />
     </div>
