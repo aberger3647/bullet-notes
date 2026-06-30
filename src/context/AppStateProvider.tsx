@@ -21,16 +21,32 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import { openShareSheet, shareUrl } from '../lib/shareNode';
 import { createSharedDocument, useDocumentSync } from '../sync/useDocumentSync';
 import { useSharedSubtreeSync } from '../sync/useSharedSubtreeSync';
+import { useUserDocumentSync } from '../sync/useUserDocumentSync';
 import type { SyncConnectionStatus } from '../sync/syncTypes';
 import { AppStateContext, type AppMode } from './appStateContext';
 
 const STORAGE_KEY = 'bullet-notes:v1';
-const DEBOUNCE_MS = 400;
 
 function getVisibleForView(state: AppState) {
   const raw = getChildrenForZoom(state.tree, state.zoomPath);
   if (!state.settings.hideCompleted) return raw;
   return raw.filter((n) => !n.completed);
+}
+
+function readLocalStoragePayload(): PersistedState | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedState;
+    if (!parsed || !Array.isArray(parsed.tree) || parsed.tree.length === 0) return null;
+    return {
+      tree: parsed.tree,
+      zoomPath: sanitizeZoomPath(parsed.tree, parsed.zoomPath ?? []),
+      settings: parsed.settings ?? { hideCompleted: false, theme: 'light' },
+    };
+  } catch {
+    return null;
+  }
 }
 
 type Props = {
@@ -42,11 +58,9 @@ type Props = {
 export function AppStateProvider({ children, mode, shareToken }: Props) {
   const [state, dispatch] = useReducer(appReducer, initialAppState);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
-  const [persistReady, setPersistReady] = useState(mode === 'local');
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [editingBulletId, setEditingBulletId] = useState<string | null>(null);
   const [editingIndentParentId, setEditingIndentParentId] = useState<string | undefined>(undefined);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shareMessageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isRemoteRef = useRef(false);
   const broadcastRef = useRef<(action: AppAction) => void>(() => {});
@@ -56,7 +70,7 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
   settingsRef.current = state.settings;
   treeRef.current = state.tree;
 
-  const onHydrate = useCallback((tree: BulletNode[]) => {
+  const onHydrateShared = useCallback((tree: BulletNode[]) => {
     dispatch({
       type: 'HYDRATE',
       payload: {
@@ -65,7 +79,30 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
         settings: settingsRef.current,
       },
     });
-    setPersistReady(true);
+  }, []);
+
+  const onHydrateUser = useCallback((payload: PersistedState) => {
+    dispatch({
+      type: 'HYDRATE',
+      payload: {
+        tree: payload.tree,
+        zoomPath: sanitizeZoomPath(payload.tree, payload.zoomPath ?? []),
+        settings: payload.settings ?? { hideCompleted: false, theme: 'light' },
+      },
+    });
+  }, []);
+
+  const onFirstVisit = useCallback((): PersistedState | null => {
+    const local = readLocalStoragePayload();
+    if (local) {
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        /* ignore */
+      }
+      return local;
+    }
+    return null;
   }, []);
 
   const onRemoteAction = useCallback((action: AppAction) => {
@@ -79,12 +116,21 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
   const isShared = mode === 'shared' && Boolean(shareToken);
   const isLocal = mode === 'local';
 
-  const { status: syncStatus, otherEditors, broadcastAction } = useDocumentSync({
+  const { status: sharedSyncStatus, otherEditors, broadcastAction } = useDocumentSync({
     shareToken: shareToken ?? '',
     tree: state.tree,
     enabled: isShared && isSupabaseConfigured(),
     onRemoteAction,
-    onHydrate,
+    onHydrate: onHydrateShared,
+  });
+
+  const { status: userSyncStatus } = useUserDocumentSync({
+    tree: state.tree,
+    zoomPath: state.zoomPath,
+    settings: state.settings,
+    enabled: isLocal && isSupabaseConfigured(),
+    onHydrate: onHydrateUser,
+    onFirstVisit,
   });
 
   const { broadcastSubtreeAction } = useSharedSubtreeSync({
@@ -97,51 +143,8 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
   subtreeBroadcastRef.current = broadcastSubtreeAction;
 
   useEffect(() => {
-    if (mode !== 'local') return;
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as PersistedState;
-        if (parsed && Array.isArray(parsed.tree)) {
-          dispatch({
-            type: 'HYDRATE',
-            payload: {
-              tree: parsed.tree,
-              zoomPath: sanitizeZoomPath(parsed.tree, parsed.zoomPath ?? []),
-              settings: parsed.settings ?? { hideCompleted: false, theme: 'light' },
-            },
-          });
-        }
-      }
-    } catch {
-      /* ignore */
-    }
-    queueMicrotask(() => setPersistReady(true));
-  }, [mode]);
-
-  useEffect(() => {
     document.documentElement.dataset.theme = state.settings.theme;
   }, [state.settings.theme]);
-
-  useEffect(() => {
-    if (mode !== 'local' || !persistReady) return;
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      const payload: PersistedState = {
-        tree: state.tree,
-        zoomPath: state.zoomPath,
-        settings: state.settings,
-      };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      } catch {
-        /* ignore */
-      }
-    }, DEBOUNCE_MS);
-    return () => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-    };
-  }, [mode, persistReady, state.tree, state.zoomPath, state.settings]);
 
   const wrappedDispatch = useCallback<Dispatch<AppAction>>(
     (action) => {
@@ -228,8 +231,13 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
 
   const visibleChildren = useMemo(() => getVisibleForView(state), [state]);
 
-  const resolvedSyncStatus: SyncConnectionStatus =
-    mode === 'local' ? 'idle' : isSupabaseConfigured() ? syncStatus : 'error';
+  const resolvedSyncStatus: SyncConnectionStatus = isShared
+    ? isSupabaseConfigured()
+      ? sharedSyncStatus
+      : 'error'
+    : isSupabaseConfigured()
+      ? userSyncStatus
+      : 'error';
 
   const value = useMemo(
     () => ({
@@ -282,11 +290,28 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
     );
   }
 
+  if (isLocal && (resolvedSyncStatus === 'loading' || resolvedSyncStatus === 'idle')) {
+    return (
+      <div className="loading-screen">
+        <p>Loading your notes…</p>
+      </div>
+    );
+  }
+
   if (isShared && resolvedSyncStatus === 'error') {
     return (
       <div className="loading-screen">
         <p>Could not load this shared document.</p>
         <p className="hint">Check the link or try again later.</p>
+      </div>
+    );
+  }
+
+  if (isLocal && resolvedSyncStatus === 'error') {
+    return (
+      <div className="loading-screen">
+        <p>Could not load your notes.</p>
+        <p className="hint">Check your connection and try again.</p>
       </div>
     );
   }

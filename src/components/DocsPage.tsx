@@ -44,7 +44,7 @@ export function DocsPage() {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as { settings?: { theme?: string } };
-        if (parsed.settings?.theme) {
+        if (parsed.settings?.theme === 'light' || parsed.settings?.theme === 'dark') {
           document.documentElement.dataset.theme = parsed.settings.theme;
         }
       }
@@ -147,14 +147,36 @@ export function DocsPage() {
       ),
     },
     {
+      id: 'account',
+      title: 'Account',
+      body: (
+        <>
+          <p>
+            Bullet Notes requires a <strong>Google account</strong>. Sign in on first visit to
+            access your notes, shared links, and this documentation.
+          </p>
+          <p>
+            Sign out anytime from <strong>Settings → Account</strong>. Your notes stay saved in the
+            cloud and are available when you sign back in.
+          </p>
+        </>
+      ),
+    },
+    {
       id: 'sharing',
       title: 'Sharing',
       body: (
         <>
           <p>
-            Tap <strong>Share</strong> in the header to create a link for real-time collaboration.
-            Anyone with the link can edit. Changes sync live; presence shows how many others are
-            editing. Undo and redo are disabled in shared documents to keep everyone in sync.
+            Share any bullet and everything nested under it. On desktop, hover a bullet row and
+            click the <strong>users icon</strong> beside the bullet marker. On mobile, the share
+            sheet opens so you can copy or send the link.
+          </p>
+          <p>
+            Shared bullets live at <Kbd>/d/:shareToken</Kbd>. Everyone with the link must{' '}
+            <strong>sign in with Google</strong> to view or edit. Changes sync in real time;
+            presence shows how many others are editing. Undo and redo are disabled in shared
+            documents.
           </p>
         </>
       ),
@@ -165,8 +187,17 @@ export function DocsPage() {
       body: (
         <>
           <p>
-            Personal notes save automatically in your browser. No account needed. Your theme and
-            zoom level are remembered between visits.
+            Your notes save automatically to the cloud, linked to your Google account. Edits sync
+            across devices when signed in with the same account. Saves are debounced to a couple of
+            seconds while you edit.
+          </p>
+          <p>
+            Your bullet tree, zoom level, and settings (theme, hide completed) are remembered.
+            Expand/collapse state and undo history are not saved.
+          </p>
+          <p>
+            If you used Bullet Notes before cloud storage, notes in browser localStorage are
+            imported on your first sign-in.
           </p>
         </>
       ),

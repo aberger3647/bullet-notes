@@ -4,6 +4,7 @@ import { BulletList } from './components/BulletList';
 import { MobileEditToolbar } from './components/MobileEditToolbar';
 import { DocsPage } from './components/DocsPage';
 import { SettingsPanel } from './components/SettingsPanel';
+import { RequireAuth } from './components/RequireAuth';
 import { AppStateProvider } from './context/AppStateProvider';
 import { useAppState } from './hooks/useAppState';
 import { useGlobalUndoRedo } from './hooks/useGlobalUndoRedo';
@@ -190,9 +191,30 @@ function DocumentRoute({ mode }: { mode: 'local' | 'shared' }) {
 export default function App() {
   return (
     <Routes>
-      <Route path="/docs" element={<DocsPage />} />
-      <Route path="/" element={<DocumentRoute mode="local" />} />
-      <Route path="/d/:shareToken" element={<DocumentRoute mode="shared" />} />
+      <Route
+        path="/docs"
+        element={
+          <RequireAuth>
+            <DocsPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/"
+        element={
+          <RequireAuth>
+            <DocumentRoute mode="local" />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/d/:shareToken"
+        element={
+          <RequireAuth>
+            <DocumentRoute mode="shared" />
+          </RequireAuth>
+        }
+      />
     </Routes>
   );
 }

@@ -16,11 +16,12 @@ Bullet Notes is a lightweight hierarchical outliner for capturing ideas in neste
 8. [Search](#search)
 9. [Undo & Redo](#undo--redo)
 10. [Settings Panel](#settings-panel)
-11. [Local Persistence](#local-persistence)
-12. [Sharing & Real-Time Collaboration](#sharing--real-time-collaboration)
-13. [Navigation & Routes](#navigation--routes)
-14. [Browser Tab Title](#browser-tab-title)
-15. [Accessibility](#accessibility)
+11. [Account & Sign-In](#account--sign-in)
+12. [Cloud Storage](#cloud-storage)
+13. [Sharing & Real-Time Collaboration](#sharing--real-time-collaboration)
+14. [Navigation & Routes](#navigation--routes)
+15. [Browser Tab Title](#browser-tab-title)
+16. [Accessibility](#accessibility)
 
 ---
 
@@ -72,7 +73,7 @@ Zoom lets you focus on one section of your outline at a time, working only with 
 - Click any breadcrumb (including **Home**) to jump back to that level.
 - When zoomed in, the page title in the header reflects the current bullet's text.
 
-Zoom state is saved locally along with your notes and restored on reload.
+Zoom state is saved in the cloud along with your notes and restored on reload.
 
 ---
 
@@ -188,13 +189,18 @@ Undo and redo are available in the Settings panel and via global keyboard shortc
 
 Open the **gear** floating action button to access settings.
 
+### Account
+
+- Shows your signed-in Google email address.
+- **Sign out** ends your session and returns you to the sign-in screen.
+
 ### Search
 
 Full search interface with query syntax help (see [Search](#search)).
 
 ### Appearance
 
-Toggle between **light mode** and **dark mode**. The theme preference is saved locally.
+Toggle between **light mode** and **dark mode**. The theme preference is saved to your cloud document.
 
 ### Bullets
 
@@ -208,21 +214,37 @@ Undo and redo buttons with keyboard shortcut hints. Disabled in shared mode with
 
 ---
 
-## Local Persistence
+## Account & Sign-In
 
-Personal notes (the `/` route) are saved automatically in the browser's **localStorage**.
+Bullet Notes requires a **Google account** to use. Sign in is required for all routes, including personal notes, shared links, and documentation.
 
-- Storage key: `bullet-notes:v1`
+- On first visit, you see a **Sign in with Google** screen.
+- After signing in, you are returned to the page you were trying to open (including shared links).
+- Your session persists across browser restarts until you sign out.
+- Sign out from **Settings → Account**.
+
+Supabase must be configured (`VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`), and Google OAuth must be enabled in the Supabase dashboard.
+
+---
+
+## Cloud Storage
+
+Personal notes (the `/` route) are saved automatically to **Supabase PostgreSQL**, linked to your Google account.
+
 - Saved data: bullet tree, zoom path, and settings (theme, hide completed)
-- Saves are debounced (400 ms) to avoid excessive writes while typing
-- Notes persist across page refreshes and browser restarts
-- No account or sign-in is required for local use
+- Saves are debounced (2 seconds) to avoid excessive writes while editing
+- Notes sync across devices when signed in with the same account
+- Undo/redo history and expand/collapse state are **not** saved
+
+### Upgrading from local storage
+
+If you used Bullet Notes before cloud storage, notes saved in browser localStorage (`bullet-notes:v1`) are automatically imported into your account on first sign-in, then removed from localStorage.
 
 ---
 
 ## Sharing & Real-Time Collaboration
 
-When Supabase is configured (`VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`), you can share any bullet — and everything nested under it — while the rest of your document stays private.
+When Supabase is configured, you can share any bullet — and everything nested under it — while the rest of your document stays private. **All participants must sign in with Google**, including collaborators opening a share link.
 
 ### Sharing a bullet
 
@@ -235,7 +257,7 @@ Click the icon again on an already-shared bullet to re-open the share sheet with
 
 ### Shared document URL
 
-Shared bullets live at `/d/:shareToken`, where `shareToken` is a unique UUID. Anyone with the link can **view and edit** that subtree in real time — the link is the only credential; no account or invite system.
+Shared bullets live at `/d/:shareToken`, where `shareToken` is a unique UUID. Anyone with the link who is **signed in with Google** can **view and edit** that subtree in real time.
 
 ### How collaboration works
 
@@ -261,17 +283,20 @@ When viewing a shared link (`/d/:shareToken`), a status line in the header shows
 ### Shared document limitations
 
 - Undo and redo are disabled when viewing a shared link.
-- Zoom path and personal settings are not synced; each person manages their own view locally.
+- Zoom path and personal settings are not synced between collaborators; each person manages their own view.
 - Unsharing / revoking a link is not supported yet.
 
 ---
 
 ## Navigation & Routes
 
+All routes require Google sign-in.
+
 | Route | Mode | Description |
 |-------|------|-------------|
-| `/` | Local | Personal notes stored in localStorage |
+| `/` | Personal | Your full document stored in Supabase |
 | `/d/:shareToken` | Shared | A single shared bullet subtree loaded from Supabase |
+| `/docs` | Help | In-app documentation (open from Settings → Help) |
 
 The app uses client-side routing (React Router). Netlify and similar hosts should redirect all paths to `index.html` for SPA support.
 
@@ -304,7 +329,8 @@ The document title updates dynamically:
 |------|----------------|
 | UI | React 19, TypeScript, Vite |
 | Drag and drop | dnd-kit |
-| Local storage | Browser localStorage |
+| Authentication | Supabase Auth (Google OAuth) |
+| Personal storage | Supabase PostgreSQL (`bullet_notes_user_documents`) |
 | Collaboration | Supabase (PostgreSQL + Realtime) |
 | Routing | React Router |
 | Styling | Custom CSS with light/dark themes |

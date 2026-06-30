@@ -6,28 +6,61 @@ import pg from 'pg';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export const TABLE_NAME = 'bullet_notes_documents';
-const MIGRATION_FILE = path.join(__dirname, '../supabase/migrations/001_documents.sql');
+const MIGRATIONS_DIR = path.join(__dirname, '../supabase/migrations');
+const MIGRATIONS_TABLE = 'bullet_notes_schema_migrations';
 
 function getConnectionString() {
   return process.env.SUPABASE_DB_URL || process.env.DATABASE_URL || '';
 }
 
-async function tableExists(client) {
-  const { rows } = await client.query(
-    `select exists (
-      select 1
-      from information_schema.tables
-      where table_schema = 'public'
-        and table_name = $1
-    ) as exists`,
-    [TABLE_NAME],
-  );
-  return Boolean(rows[0]?.exists);
+function listMigrationFiles() {
+  if (!fs.existsSync(MIGRATIONS_DIR)) return [];
+  return fs
+    .readdirSync(MIGRATIONS_DIR)
+    .filter((f) => f.endsWith('.sql'))
+    .sort();
+}
+
+async function ensureMigrationsTable(client) {
+  await client.query(`
+    create table if not exists ${MIGRATIONS_TABLE} (
+      id text primary key,
+      applied_at timestamptz not null default now()
+    )
+  `);
+}
+
+async function getAppliedMigrations(client) {
+  const { rows } = await client.query(`select id from ${MIGRATIONS_TABLE} order by id`);
+  return new Set(rows.map((r) => r.id));
+}
+
+async function seedLegacyMigrations(client, files, applied) {
+  const legacy = [
+    { file: '001_documents.sql', table: 'bullet_notes_documents' },
+  ];
+
+  for (const { file, table } of legacy) {
+    if (!files.includes(file) || applied.has(file)) continue;
+    const { rows } = await client.query(
+      `select exists (
+        select 1 from information_schema.tables
+        where table_schema = 'public' and table_name = $1
+      ) as exists`,
+      [table],
+    );
+    if (rows[0]?.exists) {
+      await client.query(`insert into ${MIGRATIONS_TABLE} (id) values ($1) on conflict do nothing`, [
+        file,
+      ]);
+      applied.add(file);
+    }
+  }
 }
 
 /**
- * Run the one-time schema migration when prefixed tables are missing.
- * Safe to call on every deploy — no-op once tables exist.
+ * Run pending schema migrations in order.
+ * Safe to call on every deploy — no-op once all migrations are applied.
  */
 export async function runMigration() {
   const connectionString = getConnectionString();
@@ -40,11 +73,12 @@ export async function runMigration() {
     };
   }
 
-  if (!fs.existsSync(MIGRATION_FILE)) {
+  const files = listMigrationFiles();
+  if (files.length === 0) {
     return {
       ok: true,
       skipped: true,
-      message: `Migration already applied (${TABLE_NAME} setup file removed).`,
+      message: 'No migration files found.',
     };
   }
 
@@ -56,23 +90,38 @@ export async function runMigration() {
   await client.connect();
 
   try {
-    if (await tableExists(client)) {
-      fs.unlinkSync(MIGRATION_FILE);
+    await ensureMigrationsTable(client);
+    const applied = await getAppliedMigrations(client);
+    await seedLegacyMigrations(client, files, applied);
+    const pending = files.filter((f) => !applied.has(f));
+
+    if (pending.length === 0) {
       return {
         ok: true,
         skipped: true,
-        message: `Table ${TABLE_NAME} already exists — migration skipped and setup file removed.`,
+        message: 'All migrations already applied.',
       };
     }
 
-    const sql = fs.readFileSync(MIGRATION_FILE, 'utf8');
-    await client.query(sql);
-    fs.unlinkSync(MIGRATION_FILE);
+    const appliedNames = [];
+    for (const file of pending) {
+      const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8');
+      await client.query('begin');
+      try {
+        await client.query(sql);
+        await client.query(`insert into ${MIGRATIONS_TABLE} (id) values ($1)`, [file]);
+        await client.query('commit');
+        appliedNames.push(file);
+      } catch (err) {
+        await client.query('rollback');
+        throw err;
+      }
+    }
 
     return {
       ok: true,
       skipped: false,
-      message: `Created ${TABLE_NAME} and RPC functions; migration file removed.`,
+      message: `Applied migrations: ${appliedNames.join(', ')}`,
     };
   } finally {
     await client.end();

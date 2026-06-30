@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthProvider';
 import { useAppState } from '../hooks/useAppState';
 import { SearchSection } from './SearchSection';
 
@@ -91,6 +92,7 @@ function Switch({
 
 export function SettingsPanel({ open, onClose }: Props) {
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
   const { state, dispatch, mode, expandAll, collapseAll } = useAppState();
   const canUndo = state.history.past.length > 0;
   const canRedo = state.history.future.length > 0;
@@ -111,6 +113,18 @@ export function SettingsPanel({ open, onClose }: Props) {
           <h2 id="settings-title">Settings</h2>
           <button type="button" className="icon-btn" onClick={onClose} aria-label="Close settings">
             ✕
+          </button>
+        </div>
+
+        <div className="settings-section">
+          <h3>Account</h3>
+          {user?.email ? <p className="account-email">{user.email}</p> : null}
+          <button
+            type="button"
+            className="icon-action account-sign-out"
+            onClick={() => void signOut()}
+          >
+            Sign out
           </button>
         </div>
 
