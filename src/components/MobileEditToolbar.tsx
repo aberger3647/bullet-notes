@@ -15,7 +15,7 @@ function toolbarPointerAction(
 
 function IndentIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round" d="M21 12H11" />
       <path strokeLinecap="round" strokeLinejoin="round" d="m18 9 3 3-3 3" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 6v12" />
@@ -25,7 +25,7 @@ function IndentIcon() {
 
 function OutdentIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 12h10" />
       <path strokeLinecap="round" strokeLinejoin="round" d="m6 9-3 3 3 3" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M21 6v12" />
@@ -35,7 +35,7 @@ function OutdentIcon() {
 
 function CheckIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round" d="M20 6 9 17l-5-5" />
     </svg>
   );
@@ -43,7 +43,7 @@ function CheckIcon() {
 
 function UsersIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
       <circle cx="9" cy="7" r="4" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M22 21v-2a4 4 0 0 0-3-3.87" />
@@ -86,7 +86,9 @@ export function MobileEditToolbar() {
   };
 
   const onOutdent = () => {
-    if (!canOutdent) return;
+    if (!canOutdent || !loc?.parent) return;
+    const parentLoc = locateNode(state.tree, loc.parent.id);
+    if (parentLoc?.parent) ensureExpanded(parentLoc.parent.id);
     dispatch({ type: 'OUTDENT', id: editingBulletId });
   };
 
@@ -132,7 +134,6 @@ export function MobileEditToolbar() {
         onPointerDown={(e) => toolbarPointerAction(e, keepEditingBullet, onIndent)}
       >
         <IndentIcon />
-        <span className="mobile-edit-toolbar-label">Indent</span>
       </button>
 
       <button
@@ -143,7 +144,6 @@ export function MobileEditToolbar() {
         onPointerDown={(e) => toolbarPointerAction(e, keepEditingBullet, onOutdent)}
       >
         <OutdentIcon />
-        <span className="mobile-edit-toolbar-label">Outdent</span>
       </button>
 
       <button
@@ -154,7 +154,6 @@ export function MobileEditToolbar() {
         onPointerDown={(e) => toolbarPointerAction(e, keepEditingBullet, onComplete)}
       >
         <CheckIcon />
-        <span className="mobile-edit-toolbar-label">Done</span>
       </button>
 
       <button
@@ -165,7 +164,6 @@ export function MobileEditToolbar() {
         onPointerDown={onSharePointerDown}
       >
         <UsersIcon />
-        <span className="mobile-edit-toolbar-label">Share</span>
       </button>
     </div>
   );

@@ -13,6 +13,7 @@ import {
   outdentNode,
   reorderSiblings,
   sanitizeZoomPath,
+  getChildrenForZoom,
   getZoomPathToNode,
   setNodeText,
   setNodeShareToken,
@@ -161,7 +162,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'OUTDENT': {
       const nextTree = outdentNode(state.tree, action.id);
       if (nextTree === state.tree) return state;
-      return withCommit(state, { tree: nextTree, focusedId: action.id });
+      const stillVisible = getChildrenForZoom(nextTree, state.zoomPath).some((n) => n.id === action.id);
+      const zoomPath = stillVisible ? state.zoomPath : getZoomPathToNode(nextTree, action.id);
+      return withCommit(state, { tree: nextTree, focusedId: action.id, zoomPath });
     }
     case 'ZOOM_INTO': {
       const loc = locateNode(state.tree, action.id);

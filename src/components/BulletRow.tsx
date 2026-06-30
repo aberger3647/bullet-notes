@@ -26,6 +26,14 @@ function UsersIcon() {
   );
 }
 
+function selectAllContents(el: HTMLElement) {
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  const sel = window.getSelection();
+  sel?.removeAllRanges();
+  sel?.addRange(range);
+}
+
 export function BulletRow({
   node,
   expanded,
@@ -35,7 +43,7 @@ export function BulletRow({
   childRegionId,
 }: BulletRowProps) {
   const { state, dispatch, shareNode, setEditingBullet, scheduleClearEditingBullet } = useAppState();
-  const inputRef = useRef<HTMLInputElement>(null);
+  const editRef = useRef<HTMLDivElement>(null);
   const [shareBusy, setShareBusy] = useState(false);
 
   const {
@@ -48,11 +56,19 @@ export function BulletRow({
   } = useSortable({ id: node.id });
 
   useEffect(() => {
+    const el = editRef.current;
+    if (!el || document.activeElement === el) return;
+    if (el.textContent !== node.text) {
+      el.textContent = node.text;
+    }
+  }, [node.text]);
+
+  useEffect(() => {
     if (state.focusedId === node.id) {
-      const el = inputRef.current;
+      const el = editRef.current;
       if (el) {
         el.focus();
-        el.select();
+        selectAllContents(el);
       }
       dispatch({ type: 'SET_FOCUSED', id: null });
     }
@@ -64,7 +80,7 @@ export function BulletRow({
     opacity: isDragging ? 0.55 : 1,
   };
 
-  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
       dispatch({ type: 'TOGGLE_COMPLETE', id: node.id });
@@ -84,6 +100,23 @@ export function BulletRow({
         if (indentParentId && onEnsureExpanded) onEnsureExpanded(indentParentId);
       }
     }
+  };
+
+  const onInput = (e: React.FormEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const raw = el.textContent ?? '';
+    const text = raw.replace(/\u00a0/g, ' ').replace(/\n/g, '');
+    if (raw !== text) {
+      el.textContent = text;
+      selectAllContents(el);
+    }
+    dispatch({ type: 'SET_TEXT', id: node.id, text });
+  };
+
+  const onPaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const text = e.clipboardData.getData('text/plain').replace(/\r?\n/g, ' ');
+    document.execCommand('insertText', false, text);
   };
 
   const hasChildren = node.children.length > 0;
@@ -159,15 +192,22 @@ export function BulletRow({
         )}
       </button>
 
-      <input
-        ref={inputRef}
+      <div
+        ref={editRef}
         className="bullet-input"
-        value={node.text}
-        onChange={(e) => dispatch({ type: 'SET_TEXT', id: node.id, text: e.target.value })}
+        contentEditable
+        suppressContentEditableWarning
+        role="textbox"
+        aria-multiline="false"
+        aria-label="Bullet text"
+        spellCheck={false}
+        autoCorrect="off"
+        autoCapitalize="sentences"
+        onInput={onInput}
         onKeyDown={onKeyDown}
+        onPaste={onPaste}
         onFocus={() => setEditingBullet(node.id, indentParentId)}
         onBlur={() => scheduleClearEditingBullet()}
-        aria-label="Bullet text"
       />
     </div>
   );

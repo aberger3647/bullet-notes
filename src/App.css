@@ -641,6 +641,12 @@
   font: inherit;
   background: transparent;
   color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  outline: none;
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-user-modify: read-write-plaintext-only;
 }
 
 .bullet-input:focus,
@@ -888,7 +894,7 @@ html[data-theme='dark'] .mobile-edit-toolbar {
   }
 
   .app-shell--editing .app-main {
-    padding-bottom: calc(3.5rem + var(--keyboard-inset, 0px));
+    padding-bottom: calc(3rem + var(--keyboard-inset, 0px));
   }
 }
 
@@ -902,11 +908,9 @@ html[data-theme='dark'] .mobile-edit-toolbar {
   color: var(--fg);
   cursor: pointer;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.15rem;
-  padding: 0.25rem 0.15rem;
+  padding: 0.35rem;
   font: inherit;
   touch-action: manipulation;
   -webkit-user-select: none;
@@ -923,14 +927,6 @@ html[data-theme='dark'] .mobile-edit-toolbar {
 }
 
 .mobile-edit-toolbar-btn--active {
-  color: var(--link);
-}
-
-.mobile-edit-toolbar-label {
-  color: var(--muted);
-}
-
-.mobile-edit-toolbar-btn--active .mobile-edit-toolbar-label {
   color: var(--link);
 }
 
