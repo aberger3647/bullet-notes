@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { Routes, Route, useParams } from 'react-router-dom';
 import { BulletList } from './components/BulletList';
 import { MobileEditToolbar } from './components/MobileEditToolbar';
@@ -9,6 +9,7 @@ import { AppStateProvider } from './context/AppStateProvider';
 import { useAppState } from './hooks/useAppState';
 import { useGlobalUndoRedo } from './hooks/useGlobalUndoRedo';
 import { useDocumentTitle } from './hooks/useDocumentTitle';
+import { useVisualViewportBottom } from './hooks/useVisualViewportBottom';
 import { findNodeById, getChildrenForZoom } from './state/treeOps';
 import './App.css';
 
@@ -72,6 +73,11 @@ function syncStatusLabel(status: string, otherEditors: number): string {
 function Shell() {
   const { state, dispatch, mode, syncStatus, otherEditors, shareMessage, editingBulletId } = useAppState();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const keyboardBottom = useVisualViewportBottom();
+  const shellStyle = useMemo(
+    () => ({ '--keyboard-inset': `${keyboardBottom}px` }) as CSSProperties,
+    [keyboardBottom],
+  );
 
   useDocumentTitle(state.tree, state.zoomPath);
   useGlobalUndoRedo(dispatch, mode === 'local');
@@ -104,7 +110,10 @@ function Shell() {
   };
 
   return (
-    <div className={`app-shell ${mode === 'shared' ? 'app-shell--shared' : ''} ${editingBulletId ? 'app-shell--editing' : ''}`}>
+    <div
+      className={`app-shell ${mode === 'shared' ? 'app-shell--shared' : ''} ${editingBulletId ? 'app-shell--editing' : ''}`}
+      style={shellStyle}
+    >
       <header className="app-header">
         {mode === 'shared' ? (
           <div className="shared-note-banner" role="status" aria-label="Shared note">

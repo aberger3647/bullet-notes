@@ -1,6 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useAppState } from '../hooks/useAppState';
-import { useVisualViewportBottom } from '../hooks/useVisualViewportBottom';
 import { openShareSheet, shareUrl } from '../lib/shareNode';
 import { findNodeById, locateNode } from '../state/treeOps';
 
@@ -65,7 +64,6 @@ export function MobileEditToolbar() {
     completeShareForBullet,
     keepEditingBullet,
   } = useAppState();
-  const keyboardBottom = useVisualViewportBottom();
   const [shareBusy, setShareBusy] = useState(false);
 
   const node = editingBulletId ? findNodeById(state.tree, editingBulletId) : null;
@@ -75,11 +73,6 @@ export function MobileEditToolbar() {
   const canOutdent = loc !== null && Boolean(loc.parent);
   const isCompleted = node?.completed ?? false;
   const isShared = Boolean(node?.shareToken);
-
-  const style = useMemo(
-    () => ({ bottom: keyboardBottom > 0 ? keyboardBottom : undefined }),
-    [keyboardBottom],
-  );
 
   if (!editingBulletId || !node) return null;
 
@@ -130,12 +123,7 @@ export function MobileEditToolbar() {
   };
 
   return (
-    <div
-      className="mobile-edit-toolbar"
-      role="toolbar"
-      aria-label="Bullet actions"
-      style={style}
-    >
+    <div className="mobile-edit-toolbar" role="toolbar" aria-label="Bullet actions">
       <button
         type="button"
         className="mobile-edit-toolbar-btn"
