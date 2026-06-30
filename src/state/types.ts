@@ -3,6 +3,7 @@ export type BulletNode = {
   text: string;
   completed: boolean;
   children: BulletNode[];
+  shareToken?: string;
 };
 
 export type Settings = {
@@ -43,6 +44,7 @@ export type AppAction =
   | { type: 'OUTDENT'; id: string }
   | { type: 'TOGGLE_COMPLETE'; id: string }
   | { type: 'SET_TEXT'; id: string; text: string }
+  | { type: 'SET_NODE_SHARE'; id: string; shareToken: string }
   | { type: 'SET_FOCUSED'; id: string | null }
   | { type: 'ZOOM_INTO'; id: string; newChildId?: string }
   | { type: 'ZOOM_BACK' }

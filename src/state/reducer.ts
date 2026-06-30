@@ -15,6 +15,7 @@ import {
   sanitizeZoomPath,
   getZoomPathToNode,
   setNodeText,
+  setNodeShareToken,
   toggleComplete,
 } from './treeOps';
 
@@ -112,6 +113,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return applyRedo(state);
     case 'SET_TEXT': {
       const nextTree = setNodeText(state.tree, action.id, action.text);
+      if (nextTree === state.tree) return state;
+      return { ...state, tree: nextTree };
+    }
+    case 'SET_NODE_SHARE': {
+      const nextTree = setNodeShareToken(state.tree, action.id, action.shareToken);
       if (nextTree === state.tree) return state;
       return { ...state, tree: nextTree };
     }

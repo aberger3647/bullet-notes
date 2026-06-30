@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Routes, Route, useParams } from 'react-router-dom';
 import { BulletList } from './components/BulletList';
+import { MobileEditToolbar } from './components/MobileEditToolbar';
 import { DocsPage } from './components/DocsPage';
 import { SettingsPanel } from './components/SettingsPanel';
-import { SharePanel } from './components/SharePanel';
 import { AppStateProvider } from './context/AppStateProvider';
 import { useAppState } from './hooks/useAppState';
 import { useGlobalUndoRedo } from './hooks/useGlobalUndoRedo';
@@ -37,20 +37,31 @@ function PlusIcon() {
   );
 }
 
-function ShareIcon() {
+function UsersIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-      <polyline strokeLinecap="round" strokeLinejoin="round" points="16 6 12 2 8 6" />
-      <line strokeLinecap="round" strokeLinejoin="round" x1="12" y1="2" x2="12" y2="15" />
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16 3.13a4 4 0 0 1 0 7.75" />
     </svg>
   );
 }
 
+function syncStatusLabel(status: string, otherEditors: number): string {
+  if (status === 'connected') {
+    return otherEditors > 0
+      ? `Live · ${otherEditors} other ${otherEditors === 1 ? 'person' : 'people'} editing`
+      : 'Live · edits sync in real time';
+  }
+  if (status === 'reconnecting') return 'Reconnecting…';
+  if (status === 'error') return 'Connection error';
+  return 'Connecting…';
+}
+
 function Shell() {
-  const { state, dispatch, mode } = useAppState();
+  const { state, dispatch, mode, syncStatus, otherEditors, shareMessage, editingBulletId } = useAppState();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
 
   useDocumentTitle(state.tree, state.zoomPath);
   useGlobalUndoRedo(dispatch, mode === 'local');
@@ -83,8 +94,20 @@ function Shell() {
   };
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${mode === 'shared' ? 'app-shell--shared' : ''} ${editingBulletId ? 'app-shell--editing' : ''}`}>
       <header className="app-header">
+        {mode === 'shared' ? (
+          <div className="shared-note-banner" role="status" aria-label="Shared note">
+            <span className="shared-note-badge">
+              <UsersIcon />
+              Shared note
+            </span>
+            <span className={`shared-note-sync sync-status sync-status--${syncStatus}`}>
+              {syncStatusLabel(syncStatus, otherEditors)}
+            </span>
+          </div>
+        ) : null}
+
         <div className="header-top">
           <nav className="breadcrumbs" aria-label="Zoom trail">
             <button
@@ -115,16 +138,6 @@ function Shell() {
               );
             })}
           </nav>
-
-          <button
-            type="button"
-            className="share-header-btn"
-            aria-label="Share notes"
-            onClick={() => setShareOpen(true)}
-          >
-            <ShareIcon />
-            <span className="share-header-label">Share</span>
-          </button>
         </div>
 
         {title !== null && <h1 className="page-title">{title}</h1>}
@@ -133,6 +146,12 @@ function Shell() {
       <main className="app-main">
         <BulletList />
       </main>
+
+      {shareMessage ? (
+        <div className="share-toast" role="status">
+          {shareMessage}
+        </div>
+      ) : null}
 
       <button
         type="button"
@@ -153,7 +172,8 @@ function Shell() {
       </button>
 
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-      <SharePanel open={shareOpen} onClose={() => setShareOpen(false)} />
+
+      <MobileEditToolbar />
     </div>
   );
 }

@@ -57,13 +57,7 @@ export function SearchSection({ onNavigate }: Props) {
         ) : (
           <p className="hint search-empty">No bullets match your search.</p>
         )
-      ) : (
-        <p className="hint">
-          Use <kbd>-term</kbd> to exclude (e.g. <kbd>-#high</kbd>). Use <kbd>OR</kbd> for alternatives
-          (e.g. <kbd>@Steve OR @Lisa</kbd>). Use <kbd> &gt; </kbd> for hierarchy (e.g.{' '}
-          <kbd>Projects &gt; Write draft -today</kbd> or <kbd>is:complete &gt; review</kbd>).
-        </p>
-      )}
+      ) : null}
     </>
   );
 }

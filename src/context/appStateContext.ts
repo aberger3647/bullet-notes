@@ -17,7 +17,12 @@ export type AppStateContextValue = {
   shareToken?: string;
   syncStatus: SyncConnectionStatus;
   otherEditors: number;
-  createShareLink: () => Promise<string>;
+  shareNode: (id: string) => Promise<void>;
+  shareMessage: string | null;
+  editingBulletId: string | null;
+  editingIndentParentId: string | undefined;
+  setEditingBullet: (id: string, indentParentId?: string) => void;
+  clearEditingBullet: () => void;
 };
 
 export const AppStateContext = createContext<AppStateContextValue | null>(null);

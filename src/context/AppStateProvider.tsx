@@ -10,9 +10,17 @@ import {
 } from 'react';
 import { appReducer, initialAppState } from '../state/reducer';
 import type { AppAction, AppState, BulletNode, PersistedState } from '../state/types';
-import { getChildrenForZoom, sanitizeZoomPath, collectExpandableIds } from '../state/treeOps';
+import {
+  getChildrenForZoom,
+  sanitizeZoomPath,
+  collectExpandableIds,
+  findNodeById,
+  extractSharedSubtree,
+} from '../state/treeOps';
 import { isSupabaseConfigured } from '../lib/supabase';
+import { openShareSheet, shareUrl } from '../lib/shareNode';
 import { createSharedDocument, useDocumentSync } from '../sync/useDocumentSync';
+import { useSharedSubtreeSync } from '../sync/useSharedSubtreeSync';
 import type { SyncConnectionStatus } from '../sync/syncTypes';
 import { AppStateContext, type AppMode } from './appStateContext';
 
@@ -35,11 +43,18 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
   const [state, dispatch] = useReducer(appReducer, initialAppState);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [persistReady, setPersistReady] = useState(mode === 'local');
+  const [shareMessage, setShareMessage] = useState<string | null>(null);
+  const [editingBulletId, setEditingBulletId] = useState<string | null>(null);
+  const [editingIndentParentId, setEditingIndentParentId] = useState<string | undefined>(undefined);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shareMessageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isRemoteRef = useRef(false);
   const broadcastRef = useRef<(action: AppAction) => void>(() => {});
+  const subtreeBroadcastRef = useRef<(action: AppAction) => void>(() => {});
   const settingsRef = useRef(state.settings);
+  const treeRef = useRef(state.tree);
   settingsRef.current = state.settings;
+  treeRef.current = state.tree;
 
   const onHydrate = useCallback((tree: BulletNode[]) => {
     dispatch({
@@ -62,6 +77,7 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
   }, []);
 
   const isShared = mode === 'shared' && Boolean(shareToken);
+  const isLocal = mode === 'local';
 
   const { status: syncStatus, otherEditors, broadcastAction } = useDocumentSync({
     shareToken: shareToken ?? '',
@@ -71,7 +87,14 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
     onHydrate,
   });
 
+  const { broadcastSubtreeAction } = useSharedSubtreeSync({
+    tree: state.tree,
+    enabled: isLocal && isSupabaseConfigured(),
+    onRemoteAction,
+  });
+
   broadcastRef.current = broadcastAction;
+  subtreeBroadcastRef.current = broadcastSubtreeAction;
 
   useEffect(() => {
     if (mode !== 'local') return;
@@ -126,16 +149,45 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
       dispatch(action);
       if (isRemoteRef.current) return;
       if (isShared) broadcastRef.current(action);
+      else if (isLocal) subtreeBroadcastRef.current(action);
     },
-    [isShared],
+    [isShared, isLocal],
   );
 
-  const createShareLink = useCallback(async () => {
+  const shareNode = useCallback(async (id: string) => {
     if (!isSupabaseConfigured()) {
-      throw new Error('Supabase is not configured.');
+      const msg = 'Sharing is not configured. Add Supabase env vars and rebuild.';
+      setShareMessage(msg);
+      if (shareMessageTimer.current) clearTimeout(shareMessageTimer.current);
+      shareMessageTimer.current = setTimeout(() => setShareMessage(null), 3000);
+      return;
     }
-    return createSharedDocument(state.tree);
-  }, [state.tree]);
+    const node = findNodeById(treeRef.current, id);
+    if (!node) return;
+
+    try {
+      let token = node.shareToken;
+      if (!token) {
+        const subtree = extractSharedSubtree(treeRef.current, id);
+        token = await createSharedDocument(subtree);
+        dispatch({ type: 'SET_NODE_SHARE', id, shareToken: token });
+      }
+
+      const url = shareUrl(token);
+      const title = `${(node.text.trim() || 'Shared bullet')} — Bullet Notes`;
+      const result = await openShareSheet(title, url);
+
+      if (shareMessageTimer.current) clearTimeout(shareMessageTimer.current);
+      setShareMessage(result === 'copied' ? 'Link copied to clipboard' : null);
+      if (result === 'copied') {
+        shareMessageTimer.current = setTimeout(() => setShareMessage(null), 2500);
+      }
+    } catch {
+      if (shareMessageTimer.current) clearTimeout(shareMessageTimer.current);
+      setShareMessage('Could not share. Try again.');
+      shareMessageTimer.current = setTimeout(() => setShareMessage(null), 3000);
+    }
+  }, []);
 
   const toggleExpand = useCallback((id: string) => {
     setExpanded((prev) => {
@@ -164,6 +216,16 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
     setExpanded(new Set());
   }, []);
 
+  const setEditingBullet = useCallback((id: string, indentParentId?: string) => {
+    setEditingBulletId(id);
+    setEditingIndentParentId(indentParentId);
+  }, []);
+
+  const clearEditingBullet = useCallback(() => {
+    setEditingBulletId(null);
+    setEditingIndentParentId(undefined);
+  }, []);
+
   const visibleChildren = useMemo(() => getVisibleForView(state), [state]);
 
   const resolvedSyncStatus: SyncConnectionStatus =
@@ -183,7 +245,12 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
       shareToken,
       syncStatus: resolvedSyncStatus,
       otherEditors,
-      createShareLink,
+      shareNode,
+      shareMessage,
+      editingBulletId,
+      editingIndentParentId,
+      setEditingBullet,
+      clearEditingBullet,
     }),
     [
       state,
@@ -198,7 +265,12 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
       shareToken,
       resolvedSyncStatus,
       otherEditors,
-      createShareLink,
+      shareNode,
+      shareMessage,
+      editingBulletId,
+      editingIndentParentId,
+      setEditingBullet,
+      clearEditingBullet,
     ],
   );
 

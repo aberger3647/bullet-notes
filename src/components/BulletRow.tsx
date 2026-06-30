@@ -1,6 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAppState } from '../hooks/useAppState';
 import type { BulletNode } from '../state/types';
 
@@ -15,6 +15,17 @@ export type BulletRowProps = {
   childRegionId?: string;
 };
 
+function UsersIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+
 export function BulletRow({
   node,
   expanded,
@@ -23,8 +34,9 @@ export function BulletRow({
   onEnsureExpanded,
   childRegionId,
 }: BulletRowProps) {
-  const { state, dispatch } = useAppState();
+  const { state, dispatch, shareNode, setEditingBullet, clearEditingBullet } = useAppState();
   const inputRef = useRef<HTMLInputElement>(null);
+  const [shareBusy, setShareBusy] = useState(false);
 
   const {
     attributes,
@@ -75,9 +87,37 @@ export function BulletRow({
   };
 
   const hasChildren = node.children.length > 0;
+  const isShared = Boolean(node.shareToken);
+
+  const onShareClick = () => {
+    if (shareBusy) return;
+    setShareBusy(true);
+    void shareNode(node.id)
+      .catch(() => {})
+      .finally(() => setShareBusy(false));
+  };
 
   return (
-    <div ref={setNodeRef} style={style} className={`bullet-row ${node.completed ? 'completed' : ''}`}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`bullet-row ${node.completed ? 'completed' : ''} ${isShared ? 'bullet-row--shared' : ''}`}
+    >
+      <div className="share-slot">
+        <button
+          type="button"
+          className={`share-btn ${isShared ? 'share-btn--active' : ''}`}
+          aria-label={isShared ? 'Shared — tap to share link' : 'Share this bullet'}
+          disabled={shareBusy}
+          onClick={(e) => {
+            e.stopPropagation();
+            onShareClick();
+          }}
+        >
+          <UsersIcon />
+        </button>
+      </div>
+
       <div className="disclosure-slot">
         {hasChildren ? (
           <button
@@ -125,9 +165,10 @@ export function BulletRow({
         value={node.text}
         onChange={(e) => dispatch({ type: 'SET_TEXT', id: node.id, text: e.target.value })}
         onKeyDown={onKeyDown}
+        onFocus={() => setEditingBullet(node.id, indentParentId)}
+        onBlur={() => clearEditingBullet()}
         aria-label="Bullet text"
       />
-
     </div>
   );
 }

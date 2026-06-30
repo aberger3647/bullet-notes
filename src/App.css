@@ -18,33 +18,64 @@
   gap: 0.75rem;
 }
 
-.share-header-btn {
-  flex-shrink: 0;
+.shared-note-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.65rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--link) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--link) 28%, var(--border));
+}
+
+.shared-note-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  color: var(--fg);
-  border-radius: 8px;
-  padding: 0.35rem 0.6rem;
-  font: inherit;
+  gap: 0.4rem;
   font-size: 0.85rem;
-  cursor: pointer;
+  font-weight: 600;
+  color: var(--link);
 }
 
-.share-header-btn:hover {
-  background: var(--hover);
+.shared-note-sync {
+  margin: 0;
+  font-size: 0.78rem;
 }
 
-.share-header-label {
-  display: none;
+.sync-status {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  color: var(--muted);
 }
 
-@media (min-width: 480px) {
-  .share-header-label {
-    display: inline;
-  }
+.sync-status--connected {
+  color: #16a34a;
+}
+
+.sync-status--reconnecting {
+  color: #ca8a04;
+}
+
+.sync-status--error {
+  color: #dc2626;
+}
+
+.share-toast {
+  position: fixed;
+  bottom: 5.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  padding: 0.5rem 0.85rem;
+  border-radius: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 0.85rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  pointer-events: none;
 }
 
 .loading-screen {
@@ -316,7 +347,7 @@
 .outline-item:not(:last-child)::before {
   content: '';
   position: absolute;
-  left: 2.6rem;
+  left: 4.2rem;
   top: 1.1rem;
   bottom: 0;
   width: 1px;
@@ -348,6 +379,19 @@
 .bullet-row:hover .disclosure,
 .bullet-row:focus-within .disclosure {
   opacity: 1;
+}
+
+.bullet-row:hover .share-btn,
+.bullet-row:focus-within .share-btn,
+.bullet-row--shared .share-btn {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .bullet-row:focus-within .share-btn,
+  .bullet-row--shared .share-btn {
+    opacity: 1;
+  }
 }
 
 .bullet-row.completed .bullet-input {
@@ -403,6 +447,45 @@
 
 .disclosure[aria-expanded='true'] .disclosure-triangle {
   transform: rotate(90deg);
+}
+
+.share-slot {
+  width: 1.25rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.share-btn {
+  opacity: 0;
+  border: none;
+  background: transparent;
+  padding: 0.1rem;
+  cursor: pointer;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+
+.share-btn:hover,
+.share-btn:focus-visible {
+  background: var(--hover);
+  color: var(--fg);
+  opacity: 1;
+}
+
+.share-btn--active {
+  opacity: 1;
+  color: #2563eb;
+}
+
+.share-btn:disabled {
+  cursor: wait;
+  opacity: 0.5;
 }
 
 .bullet-marker {
@@ -665,6 +748,83 @@ kbd {
 
 .btn-row {
   display: none;
+}
+
+.mobile-edit-toolbar {
+  display: none;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  align-items: stretch;
+  justify-content: space-around;
+  gap: 0.25rem;
+  padding: 0.35rem 0.5rem;
+  padding-bottom: max(0.35rem, env(safe-area-inset-bottom, 0px));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.08);
+}
+
+html[data-theme='dark'] .mobile-edit-toolbar {
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.35);
+}
+
+@media (hover: none) {
+  .app-shell--editing .mobile-edit-toolbar {
+    display: flex;
+  }
+
+  .app-shell--editing .add-bullet-fab,
+  .app-shell--editing .settings-fab {
+    display: none;
+  }
+
+  .app-shell--editing .app-main {
+    padding-bottom: 3.5rem;
+  }
+}
+
+.mobile-edit-toolbar-btn {
+  flex: 1;
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: 0.25rem 0.15rem;
+  font: inherit;
+  font-size: 0.68rem;
+  line-height: 1.1;
+}
+
+.mobile-edit-toolbar-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.mobile-edit-toolbar-btn:not(:disabled):active {
+  background: var(--hover);
+}
+
+.mobile-edit-toolbar-btn--active {
+  color: var(--link);
+}
+
+.mobile-edit-toolbar-label {
+  color: var(--muted);
+}
+
+.mobile-edit-toolbar-btn--active .mobile-edit-toolbar-label {
+  color: var(--link);
 }
 
 .settings-nav-link {

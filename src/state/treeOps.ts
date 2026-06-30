@@ -1,4 +1,4 @@
-import type { BulletNode } from './types';
+import type { AppAction, BulletNode } from './types';
 import { parseSearchQuery, nodeMatchesSearchQuery } from '../lib/searchQuery';
 
 export function createNode(partial?: Partial<BulletNode>): BulletNode {
@@ -333,4 +333,81 @@ function arrayMove<T>(arr: T[], from: number, to: number): T[] {
   const [item] = copy.splice(from, 1);
   copy.splice(to, 0, item);
   return copy;
+}
+
+export type SharedRoot = { id: string; shareToken: string };
+
+/** Every node that has been shared (has its own share link). */
+export function collectSharedRoots(roots: BulletNode[]): SharedRoot[] {
+  const out: SharedRoot[] = [];
+  const walk = (nodes: BulletNode[]) => {
+    for (const n of nodes) {
+      if (n.shareToken) out.push({ id: n.id, shareToken: n.shareToken });
+      walk(n.children);
+    }
+  };
+  walk(roots);
+  return out;
+}
+
+/** All shared roots whose subtree contains `nodeId` (for nested shares). */
+export function getShareRootsForNode(roots: BulletNode[], nodeId: string): SharedRoot[] {
+  const found: SharedRoot[] = [];
+  const walk = (nodes: BulletNode[], ancestors: SharedRoot[]) => {
+    for (const n of nodes) {
+      const chain = n.shareToken ? [...ancestors, { id: n.id, shareToken: n.shareToken }] : ancestors;
+      if (n.id === nodeId) {
+        found.push(...chain);
+        return;
+      }
+      walk(n.children, chain);
+    }
+  };
+  walk(roots, []);
+  return found;
+}
+
+/** Returns true if `nodeId` is the shared root or a descendant of it. */
+export function isUnderSharedRoot(roots: BulletNode[], sharedRootId: string, nodeId: string): boolean {
+  if (sharedRootId === nodeId) return true;
+  const root = findNodeById(roots, sharedRootId);
+  if (!root) return false;
+  return findNodeById([root], nodeId) !== null;
+}
+
+/** Extract a shared subtree as a single-root document for save/create. */
+export function extractSharedSubtree(roots: BulletNode[], rootId: string): BulletNode[] {
+  const node = findNodeById(roots, rootId);
+  if (!node) return [];
+  return [cloneSubtree(node)];
+}
+
+export function setNodeShareToken(roots: BulletNode[], id: string, shareToken: string): BulletNode[] {
+  const loc = locateNode(roots, id);
+  if (!loc) return roots;
+  const updated = { ...loc.node, shareToken };
+  const siblings = [...loc.siblings];
+  siblings[loc.index] = updated;
+  return replaceSiblings(roots, loc.siblings, siblings);
+}
+
+/** Collect node ids affected by an action (for routing broadcasts). */
+export function getActionNodeIds(action: AppAction): string[] {
+  switch (action.type) {
+    case 'SET_TEXT':
+    case 'TOGGLE_COMPLETE':
+    case 'INDENT':
+    case 'OUTDENT':
+      return [action.id];
+    case 'NEW_SIBLING_AFTER':
+      return [action.afterId, ...(action.newId ? [action.newId] : [])];
+    case 'NEW_SIBLING_BEFORE':
+      return [action.beforeId, ...(action.newId ? [action.newId] : [])];
+    case 'APPEND_CHILD':
+      return [action.parentId, ...(action.newId ? [action.newId] : [])];
+    case 'MOVE_NODE':
+      return [action.activeId, action.overId];
+    default:
+      return [];
+  }
 }

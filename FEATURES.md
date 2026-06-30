@@ -222,39 +222,47 @@ Personal notes (the `/` route) are saved automatically in the browser's **localS
 
 ## Sharing & Real-Time Collaboration
 
-When Supabase is configured (`VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`), you can share notes for live collaboration.
+When Supabase is configured (`VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`), you can share any bullet — and everything nested under it — while the rest of your document stays private.
 
-### Creating a share link
+### Sharing a bullet
 
-1. Click **Share** in the header.
-2. Click **Create share link**.
-3. The link is copied to your clipboard and the app navigates to the shared document URL.
+1. On desktop, hover a bullet row. A **users icon** appears to the left of the bullet marker (alongside the expand triangle when the bullet has children).
+2. Click the users icon to create a secret share link for that bullet and its subtree.
+3. On mobile, your phone's share sheet opens so you can copy the link or send it via Messages, email, etc. On desktop without a native share sheet, the link is copied to your clipboard.
+4. After sharing, the users icon stays visible on that bullet so you can see it is shared.
+
+Click the icon again on an already-shared bullet to re-open the share sheet with the same link.
 
 ### Shared document URL
 
-Shared notes live at `/d/:shareToken`, where `shareToken` is a unique UUID.
+Shared bullets live at `/d/:shareToken`, where `shareToken` is a unique UUID. Anyone with the link can **view and edit** that subtree in real time — the link is the only credential; no account or invite system.
 
-### Real-time sync
+### How collaboration works
 
-- Edits broadcast instantly to other open tabs and collaborators via Supabase Realtime.
+| Role | Route | What they see |
+|------|-------|---------------|
+| Owner | `/` | Full private document; shared subtrees sync in the background |
+| Collaborator | `/d/:shareToken` | Only the shared bullet and its children |
+
+- Edits broadcast instantly between owner and collaborators via Supabase Realtime.
 - Synced actions: text changes, new bullets, indent/outdent, complete toggle, and drag-and-drop moves.
 - Text broadcasts are debounced (300 ms) to reduce noise while typing.
-- The full document tree is persisted to the database on a 2-second debounce.
+- Shared subtrees are persisted to the database on a 2-second debounce.
 - Presence tracking shows how many other people are currently editing.
 
 ### Connection status
 
-The Share panel displays live connection status:
+When viewing a shared link (`/d/:shareToken`), a status line in the header shows:
 
-- **Connected** — with a count of other active editors
+- **Live** — connected, with a count of other active editors when present
 - **Reconnecting** — automatic retry on connection loss
-- **Connection error** — if the document cannot be loaded or saved
+- **Connection error** — if the shared bullet cannot be loaded or saved
 
 ### Shared document limitations
 
-- Undo and redo are disabled in shared mode.
-- Zoom path and personal settings are not synced; each collaborator manages their own view locally.
-- Anyone with the link can view and edit the document.
+- Undo and redo are disabled when viewing a shared link.
+- Zoom path and personal settings are not synced; each person manages their own view locally.
+- Unsharing / revoking a link is not supported yet.
 
 ---
 
@@ -263,7 +271,7 @@ The Share panel displays live connection status:
 | Route | Mode | Description |
 |-------|------|-------------|
 | `/` | Local | Personal notes stored in localStorage |
-| `/d/:shareToken` | Shared | Collaborative document loaded from Supabase |
+| `/d/:shareToken` | Shared | A single shared bullet subtree loaded from Supabase |
 
 The app uses client-side routing (React Router). Netlify and similar hosts should redirect all paths to `index.html` for SPA support.
 
@@ -282,7 +290,8 @@ The document title updates dynamically:
 
 - Breadcrumb navigation uses a `<nav>` with an accessible label.
 - Disclosure buttons expose `aria-expanded` and `aria-controls` for child regions.
-- Settings and Share panels are modal dialogs with labelled titles and close buttons.
+- Settings panels are modal dialogs with labelled titles and close buttons.
+- Per-bullet share buttons include `aria-label` attributes and stay visible when a bullet is shared.
 - Theme and toggle controls use `role="switch"` with `aria-checked`.
 - Search results use a listbox pattern with option buttons.
 - Drag handles and action buttons include `aria-label` attributes.

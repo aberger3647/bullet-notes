@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import type { AppAction, BulletNode } from '../state/types';
+import { fetchDocument, parseBroadcastMessage, persistDocument } from './documentApi';
 import {
   isSyncableAction,
   SAVE_DEBOUNCE_MS,
@@ -10,12 +11,7 @@ import {
   type SyncConnectionStatus,
 } from './syncTypes';
 
-type DocumentRow = {
-  id: string;
-  share_token: string;
-  tree: BulletNode[];
-  updated_at: string;
-};
+export { createSharedDocument } from './documentApi';
 
 type UseDocumentSyncOptions = {
   shareToken: string;
@@ -24,40 +20,6 @@ type UseDocumentSyncOptions = {
   onRemoteAction: (action: AppAction) => void;
   onHydrate: (tree: BulletNode[]) => void;
 };
-
-function parseBroadcastMessage(raw: unknown): BroadcastMessage | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const envelope = raw as Record<string, unknown>;
-  const inner =
-    envelope.payload && typeof envelope.payload === 'object'
-      ? (envelope.payload as BroadcastMessage)
-      : (envelope as unknown as BroadcastMessage);
-  if (!inner?.action || typeof inner.source !== 'string') return null;
-  return inner;
-}
-
-export async function createSharedDocument(tree: BulletNode[]): Promise<string> {
-  const { data, error } = await supabase.rpc('create_document', { p_tree: tree });
-  if (error) throw error;
-  return data as string;
-}
-
-async function fetchDocument(shareToken: string): Promise<DocumentRow | null> {
-  const { data, error } = await supabase.rpc('get_document', {
-    p_share_token: shareToken,
-  });
-  if (error) throw error;
-  if (!data) return null;
-  return data as DocumentRow;
-}
-
-async function persistDocument(shareToken: string, tree: BulletNode[]): Promise<void> {
-  const { error } = await supabase.rpc('save_document', {
-    p_share_token: shareToken,
-    p_tree: tree,
-  });
-  if (error) throw error;
-}
 
 export function useDocumentSync({
   shareToken,
@@ -219,8 +181,8 @@ export function useDocumentSync({
           })
           .on('presence', { event: 'sync' }, () => {
             if (!channel) return;
-            const state = channel.presenceState();
-            const count = Object.values(state).reduce((sum, arr) => sum + arr.length, 0);
+            const presenceState = channel.presenceState();
+            const count = Object.values(presenceState).reduce((sum, arr) => sum + arr.length, 0);
             setOtherEditors(Math.max(0, count - 1));
           })
           .subscribe((subscribeStatus) => {
