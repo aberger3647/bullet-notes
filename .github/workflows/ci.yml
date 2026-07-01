@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      # --ignore-scripts skips the postinstall DB migration, which needs a live database.
+      - run: npm ci --ignore-scripts
+      - name: Typecheck (app + tests)
+        run: npm run typecheck:test
+      - name: Test
+        run: npm test
+      # Lint currently has pre-existing failures in src/sync and src/context (unrelated
+      # to the test suite). Kept non-blocking so its signal is visible without red CI.
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true
