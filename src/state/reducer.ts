@@ -168,8 +168,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     }
     case 'ZOOM_INTO': {
       const loc = locateNode(state.tree, action.id);
-      const nextPath = [...state.zoomPath, action.id];
       if (!loc) return state;
+      const nextPath = [...getZoomPathToNode(state.tree, action.id), action.id];
       if (loc.node.children.length === 0) {
         const first = action.newChildId
           ? createNode({ id: action.newChildId, text: '' })
