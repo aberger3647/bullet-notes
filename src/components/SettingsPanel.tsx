@@ -12,6 +12,7 @@ import { updateProfileName, deleteMyData } from '../sync/accountApi';
 import { listTemplates, saveTemplate, deleteTemplate, type Template } from '../lib/templatesStorage';
 import { findNodeById } from '../state/treeOps';
 import { SearchSection } from './SearchSection';
+import { ListSkeleton } from './ListSkeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -416,7 +417,7 @@ export function SettingsPanel({ open, onClose, searchFocusToken }: Props) {
               </div>
 
               <h3 className="mt-4 mb-1.5 text-sm font-semibold">Version history</h3>
-              {snapshotsLoading ? <p className="text-sm text-muted-foreground">Loading…</p> : null}
+              {snapshotsLoading ? <ListSkeleton rows={2} /> : null}
               {!snapshotsLoading && snapshots.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No saved versions yet — one is taken automatically each day.</p>
               ) : null}
@@ -456,7 +457,7 @@ export function SettingsPanel({ open, onClose, searchFocusToken }: Props) {
 
               <section>
                 <SectionHeading>My shared links</SectionHeading>
-                {sharesLoading ? <p className="text-sm text-muted-foreground">Loading…</p> : null}
+                {sharesLoading ? <ListSkeleton rows={2} /> : null}
                 {!sharesLoading && shares.length === 0 ? (
                   <p className="text-sm text-muted-foreground">You haven't shared any bullets yet.</p>
                 ) : null}

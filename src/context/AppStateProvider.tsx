@@ -27,6 +27,7 @@ import { shouldSnapshotToday, todayKey } from '../lib/snapshotSchedule';
 import type { SyncConnectionStatus } from '../sync/syncTypes';
 import { useAuth } from '../hooks/useAuth';
 import { AppStateContext, type AppMode } from './appStateContext';
+import { OutlineLoadingSkeleton } from '../components/OutlineLoadingSkeleton';
 
 const STORAGE_KEY = 'bullet-notes:v1';
 const EXPANDED_STORAGE_KEY = 'bullet-notes:v1:expanded';
@@ -520,19 +521,11 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
   );
 
   if (isShared && (resolvedSyncStatus === 'loading' || resolvedSyncStatus === 'idle')) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-2 p-8 text-center">
-        <p>Loading shared notes…</p>
-      </div>
-    );
+    return <OutlineLoadingSkeleton />;
   }
 
   if (isLocal && (resolvedSyncStatus === 'loading' || resolvedSyncStatus === 'idle')) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-2 p-8 text-center">
-        <p>Loading your notes…</p>
-      </div>
-    );
+    return <OutlineLoadingSkeleton />;
   }
 
   if (isShared && resolvedSyncStatus === 'error') {

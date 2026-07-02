@@ -16,6 +16,7 @@ import { openShareSheet, shareUrl, type ShareResult } from '../lib/shareNode';
 import { createSharedDocument } from '../sync/useDocumentSync';
 import { useDocSync } from '../sync/useDocSync';
 import { AppStateContext } from './appStateContext';
+import { OutlineLoadingSkeleton } from '../components/OutlineLoadingSkeleton';
 
 function getVisibleForView(state: AppState) {
   const raw = getChildrenForZoom(state.tree, state.zoomPath);
@@ -211,11 +212,7 @@ export function DocStateProvider({ children, docId }: Props) {
   );
 
   if (syncStatus === 'loading' || syncStatus === 'idle') {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-2 p-8 text-center">
-        <p>Loading document…</p>
-      </div>
-    );
+    return <OutlineLoadingSkeleton />;
   }
 
   if (syncStatus === 'error') {

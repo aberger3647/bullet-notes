@@ -4,6 +4,7 @@ import { useDocumentsList } from '../sync/useDocumentsList';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { deriveDocTitle } from '../state/treeOps';
 import { Button } from '@/components/ui/button';
+import { ListSkeleton } from './ListSkeleton';
 
 export function MyDocumentsPage() {
   const navigate = useNavigate();
@@ -64,7 +65,7 @@ export function MyDocumentsPage() {
               </Button>
             </div>
 
-            {loading ? <p className="mt-2.5 text-sm text-muted-foreground">Loading…</p> : null}
+            {loading ? <ListSkeleton /> : null}
             {error ? <p className="mt-2.5 text-sm text-muted-foreground">Could not load your documents.</p> : null}
 
             {!loading && !error && documents.length === 0 ? (

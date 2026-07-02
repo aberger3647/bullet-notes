@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { LoginScreen } from './LoginScreen';
+import { OutlineLoadingSkeleton } from './OutlineLoadingSkeleton';
 
 type Props = {
   children: ReactNode;
@@ -20,11 +21,7 @@ export function RequireAuth({ children }: Props) {
   }
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-2 p-8 text-center">
-        <p>Loading…</p>
-      </div>
-    );
+    return <OutlineLoadingSkeleton />;
   }
 
   if (!session) {
