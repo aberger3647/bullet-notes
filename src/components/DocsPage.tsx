@@ -1,18 +1,14 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const STORAGE_KEY = 'bullet-notes:v1';
 
-function BackIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5M12 19l-7-7 7-7" />
-    </svg>
-  );
-}
-
 function Kbd({ children }: { children: React.ReactNode }) {
-  return <kbd>{children}</kbd>;
+  return (
+    <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-xs">{children}</kbd>
+  );
 }
 
 const isMac = typeof navigator !== 'undefined' && navigator.platform.includes('Mac');
@@ -22,9 +18,18 @@ type Shortcut = { keys: string[]; action: string };
 
 const shortcuts: Shortcut[] = [
   { keys: ['Enter'], action: 'New sibling bullet' },
+  { keys: ['Shift', 'Enter'], action: 'Insert a line break in the current bullet' },
   { keys: ['Tab'], action: 'Indent under bullet above' },
   { keys: ['Shift', 'Tab'], action: 'Outdent one level' },
+  { keys: ['↑'], action: 'Move to the bullet above' },
+  { keys: ['↓'], action: 'Move to the bullet below' },
+  { keys: ['Backspace'], action: 'Merge into the bullet above (or delete if empty)' },
+  { keys: [mod, 'Backspace'], action: 'Delete this bullet and its children' },
+  { keys: [mod, 'D'], action: 'Duplicate this bullet and its children' },
+  { keys: [mod, 'C'], action: 'Copy this bullet and its children' },
+  { keys: [mod, 'V'], action: 'Paste a copied bullet as a new sibling' },
   { keys: [mod, 'Enter'], action: 'Toggle complete' },
+  { keys: [mod, 'K'], action: 'Open search from anywhere' },
   { keys: [mod, 'Z'], action: 'Undo (outside text fields)' },
   { keys: [mod, 'Shift', 'Z'], action: 'Redo' },
 ];
@@ -66,6 +71,31 @@ export function DocsPage() {
             Bullet Notes is a hierarchical outliner. Each line is a bullet that can have nested
             children. Click a bullet to edit, press <Kbd>Enter</Kbd> for a new sibling, and use the{' '}
             <strong>+</strong> button to add a bullet at the top of your current view.
+          </p>
+        </>
+      ),
+    },
+    {
+      id: 'editing',
+      title: 'Editing bullets',
+      body: (
+        <>
+          <p>
+            Press <Kbd>{mod}</Kbd>+<Kbd>D</Kbd> to <strong>duplicate</strong> a bullet and its
+            children as a new sibling. Press <Kbd>{mod}</Kbd>+<Kbd>Backspace</Kbd> to delete a
+            bullet outright (you&apos;ll be asked to confirm if it has children) — or press{' '}
+            <Kbd>Backspace</Kbd> at the start of a bullet to merge it into the bullet above,
+            carrying its children up with it.
+          </p>
+          <p>
+            Use <Kbd>Shift</Kbd>+<Kbd>Enter</Kbd> to add a line break inside a bullet instead of
+            creating a new one — useful for short multi-line notes. <Kbd>{mod}</Kbd>+<Kbd>C</Kbd>{' '}
+            on a bullet copies it and everything nested under it; <Kbd>{mod}</Kbd>+<Kbd>V</Kbd>{' '}
+            elsewhere pastes the whole branch as a new bullet, instead of flattening it into text.
+          </p>
+          <p>
+            On mobile, swipe a bullet left to reveal a delete action, in addition to the toolbar
+            that appears above the keyboard while editing.
           </p>
         </>
       ),
@@ -127,8 +157,11 @@ export function DocsPage() {
       title: 'Search',
       body: (
         <>
-          <p>Search lives in Settings and scans your entire outline.</p>
-          <ul className="docs-list">
+          <p>
+            Search lives in Settings — press <Kbd>{mod}</Kbd>+<Kbd>K</Kbd> from anywhere to jump
+            straight to it. Search scans your entire outline, not just the current zoom level.
+          </p>
+          <ul className="list-disc space-y-1.5 pl-5">
             <li>
               <Kbd>-term</Kbd> — exclude matches (e.g. <Kbd>-draft</Kbd>)
             </li>
@@ -143,6 +176,11 @@ export function DocsPage() {
             </li>
           </ul>
           <p>Click a result to jump to that bullet. The app zooms to the right level automatically.</p>
+          <p>
+            Write <Kbd>#tag</Kbd> anywhere in a bullet&apos;s text to tag it. Every tag used in
+            your document shows up as a chip above the search results — click one to filter to
+            bullets carrying that tag.
+          </p>
         </>
       ),
     },
@@ -156,8 +194,18 @@ export function DocsPage() {
             access your notes, shared links, and this documentation.
           </p>
           <p>
+            Set a <strong>display name</strong> in Settings → Account — it&apos;s what
+            collaborators see next to your presence badge in shared documents.
+          </p>
+          <p>
             Sign out anytime from <strong>Settings → Account</strong>. Your notes stay saved in the
             cloud and are available when you sign back in.
+          </p>
+          <p>
+            <strong>Delete my data</strong> in Settings → Account permanently deletes all of your
+            Bullet Notes content — your primary document, any extra documents, version-history
+            snapshots, and shares you created — after you type <Kbd>DELETE</Kbd> to confirm. It
+            does not delete your Google sign-in itself.
           </p>
         </>
       ),
@@ -174,16 +222,22 @@ export function DocsPage() {
           </p>
           <p>
             Shared bullets live at <Kbd>/d/:shareToken</Kbd>. Everyone with the link must{' '}
-            <strong>sign in with Google</strong> to view or edit. Changes sync in real time;
-            presence shows how many others are editing. Undo and redo are disabled in shared
-            documents.
+            <strong>sign in with Google</strong> to view it. Changes sync in real time; anyone else
+            currently viewing or editing shows up as a colored badge with their name on the bullet
+            they&apos;re on. Undo and redo are disabled in shared documents.
+          </p>
+          <p>
+            Open <strong>Settings → My shared links</strong> to manage everything you&apos;ve
+            shared: switch a link between <strong>editable</strong> and{' '}
+            <strong>view-only</strong>, or <strong>revoke</strong> it to cut off access
+            immediately (the content itself isn&apos;t deleted).
           </p>
         </>
       ),
     },
     {
       id: 'storage',
-      title: 'Saving',
+      title: 'Saving & offline',
       body: (
         <>
           <p>
@@ -192,8 +246,15 @@ export function DocsPage() {
             seconds while you edit.
           </p>
           <p>
-            Your bullet tree, zoom level, and settings (theme, hide completed) are remembered.
-            Expand/collapse state and undo history are not saved.
+            Your bullet tree, zoom level, settings, expand/collapse state, and undo history are all
+            remembered across reloads.
+          </p>
+          <p>
+            If your connection drops, your <strong>primary document</strong> keeps working from
+            the last version that synced successfully — a banner lets you know you&apos;re offline,
+            and changes sync again once you&apos;re back online. Bullet Notes can also be{' '}
+            <strong>installed</strong> like an app from your browser&apos;s install/add-to-home-screen
+            prompt.
           </p>
           <p>
             If you used Bullet Notes before cloud storage, notes in browser localStorage are
@@ -202,59 +263,136 @@ export function DocsPage() {
         </>
       ),
     },
+    {
+      id: 'export',
+      title: 'Export & import',
+      body: (
+        <>
+          <p>
+            Open <strong>Settings → Export</strong> to download your document as{' '}
+            <strong>Markdown</strong> (a GitHub-style task list), <strong>plain text</strong> (a
+            tab-indented outline), or <strong>JSON</strong> (full fidelity, including completion
+            state).
+          </p>
+          <p>
+            <strong>Settings → Import</strong> reads a JSON export back in, or a tab-indented /
+            Markdown outline (including checkboxes like <Kbd>- [x]</Kbd>) from another app. Imported
+            bullets are added into whatever you&apos;re currently zoomed into (or the top level),
+            without touching your existing content.
+          </p>
+        </>
+      ),
+    },
+    {
+      id: 'documents',
+      title: 'Multiple documents',
+      body: (
+        <>
+          <p>
+            Your <Kbd>/</Kbd> document is still your one primary, always-synced outline. Open{' '}
+            <strong>Settings → My documents</strong> for extra, separate documents — useful for
+            keeping a project or archive apart from your main outline.
+          </p>
+          <p>
+            Create a blank document, or save a copy of your primary outline as a new one to start
+            from. Each document has its own URL (<Kbd>/page/:id</Kbd>) with its own zoom, editing,
+            and sharing.
+          </p>
+        </>
+      ),
+    },
+    {
+      id: 'history',
+      title: 'Version history',
+      body: (
+        <>
+          <p>
+            Bullet Notes automatically snapshots your primary document at most once a day. Open{' '}
+            <strong>Settings → Version history</strong> to see past versions by date and{' '}
+            <strong>restore</strong> one — this replaces your current bullets, so you&apos;ll be
+            asked to confirm first.
+          </p>
+        </>
+      ),
+    },
+    {
+      id: 'daily',
+      title: 'Daily notes & templates',
+      body: (
+        <>
+          <p>
+            <strong>Settings → Go to today&apos;s note</strong> jumps to (or creates) a bullet
+            titled with today&apos;s date at the top level of your primary document — a quick spot
+            for daily journaling.
+          </p>
+          <p>
+            Zoom into any bullet and use <strong>Settings → Save current page as template</strong>{' '}
+            to store its structure for reuse. Saved templates appear below that button — click{' '}
+            <strong>Insert</strong> to add a fresh copy anywhere, or <strong>Delete</strong> to
+            remove a template you no longer need.
+          </p>
+        </>
+      ),
+    },
   ];
 
   return (
-    <div className="docs-shell">
-      <header className="docs-header">
-        <button
+    <div className="mx-auto max-w-3xl px-4 pt-6 pb-12">
+      <header className="mb-6">
+        <Button
           type="button"
-          className="docs-back"
+          variant="ghost"
+          size="sm"
+          className="mb-3 -ml-1.5"
           onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))}
         >
-          <BackIcon />
+          <ArrowLeft className="size-4" aria-hidden />
           Back to notes
-        </button>
-        <h1 className="docs-title">Documentation</h1>
-        <p className="docs-lead">
+        </Button>
+        <h1 className="mb-1.5 text-2xl font-bold">Documentation</h1>
+        <p className="text-muted-foreground">
           Everything you can do in Bullet Notes — shortcuts, search, zoom, and more.
         </p>
       </header>
 
-      <nav className="docs-toc" aria-label="On this page">
+      <nav className="mb-7 flex flex-wrap gap-1.5 border-b pb-6" aria-label="On this page">
         {sections.map((s) => (
-          <a key={s.id} href={`#${s.id}`} className="docs-toc-link">
+          <a
+            key={s.id}
+            href={`#${s.id}`}
+            className="rounded-full border bg-background px-2.5 py-1 text-sm text-primary hover:bg-muted"
+          >
             {s.title}
           </a>
         ))}
       </nav>
 
-      <section className="docs-shortcuts" aria-labelledby="shortcuts-heading">
-        <h2 id="shortcuts-heading" className="docs-section-title">
+      <section className="mb-8" aria-labelledby="shortcuts-heading">
+        <h2 id="shortcuts-heading" className="mb-3 text-lg font-semibold">
           Keyboard shortcuts
         </h2>
-        <div className="docs-shortcut-grid">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2">
           {shortcuts.map((s) => (
-            <div key={s.action} className="docs-shortcut-card">
-              <div className="docs-shortcut-keys">
+            <div key={s.action} className="flex flex-col gap-1.5 rounded-lg border bg-background p-3">
+              <div className="flex flex-wrap items-center gap-0.5">
                 {s.keys.map((k, i) => (
                   <span key={`${s.action}-${k}`}>
-                    {i > 0 ? <span className="docs-key-sep">+</span> : null}
+                    {i > 0 ? <span className="mx-0.5 text-xs text-muted-foreground">+</span> : null}
                     <Kbd>{k}</Kbd>
                   </span>
                 ))}
               </div>
-              <span className="docs-shortcut-action">{s.action}</span>
+              <span className="text-sm text-muted-foreground">{s.action}</span>
             </div>
           ))}
         </div>
       </section>
 
-      <main className="docs-sections">
+      <main className="flex flex-col gap-7">
         {sections.map((s) => (
-          <article key={s.id} id={s.id} className="docs-section">
-            <h2 className="docs-section-title">{s.title}</h2>
-            <div className="docs-section-body">{s.body}</div>
+          <article key={s.id} id={s.id} className="scroll-mt-4">
+            <h2 className="mb-3 text-lg font-semibold">{s.title}</h2>
+            <div className="flex flex-col gap-2.5 text-[0.92rem] leading-relaxed">{s.body}</div>
           </article>
         ))}
       </main>

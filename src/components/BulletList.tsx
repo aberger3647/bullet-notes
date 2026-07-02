@@ -145,7 +145,7 @@ export function BulletList() {
   );
 
   if (visibleChildren.length === 0) {
-    return <p className="empty-hint">No bullets to show here.</p>;
+    return <p className="text-[0.95rem] text-muted-foreground">No bullets to show here.</p>;
   }
 
   return (

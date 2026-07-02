@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Routes, Route, useParams } from 'react-router-dom';
+import { Home, Settings, Plus, Users } from 'lucide-react';
 import { BulletList } from './components/BulletList';
 import { MobileEditToolbar } from './components/MobileEditToolbar';
 import { DocsPage } from './components/DocsPage';
@@ -13,53 +14,10 @@ import { useGlobalUndoRedo } from './hooks/useGlobalUndoRedo';
 import { useDocumentTitle } from './hooks/useDocumentTitle';
 import { useVisualViewportBottom } from './hooks/useVisualViewportBottom';
 import { findNodeById, getChildrenForZoom } from './state/treeOps';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import './App.css';
-
-function HomeIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-      <polyline strokeLinecap="round" strokeLinejoin="round" points="9 22 9 12 15 12 15 22" />
-    </svg>
-  );
-}
-
-function GearIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"
-      />
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"
-      />
-    </svg>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <line strokeLinecap="round" x1="12" y1="5" x2="12" y2="19" />
-      <line strokeLinecap="round" x1="5" y1="12" x2="19" y2="12" />
-    </svg>
-  );
-}
-
-function UsersIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M22 21v-2a4 4 0 0 0-3-3.87" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  );
-}
 
 function syncStatusLabel(status: string, otherEditors: number): string {
   if (status === 'connected') {
@@ -132,57 +90,74 @@ function Shell() {
     >
       <header className="app-header">
         {mode === 'shared' ? (
-          <div className="shared-note-banner" role="status" aria-label="Shared note">
-            <span className="shared-note-badge">
-              <UsersIcon />
+          <div
+            className="mb-2.5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2"
+            role="status"
+            aria-label="Shared note"
+          >
+            <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
+              <Users className="size-3.5" aria-hidden />
               {readOnly ? 'Shared note (view only)' : 'Shared note'}
             </span>
-            <span className={`shared-note-sync sync-status sync-status--${syncStatus}`}>
+            <span
+              className={cn(
+                'text-xs',
+                syncStatus === 'connected' && 'text-foreground',
+                (syncStatus === 'error' || syncStatus === 'reconnecting') && 'text-muted-foreground',
+              )}
+            >
               {syncStatusLabel(syncStatus, otherEditors)}
             </span>
           </div>
         ) : null}
 
         {mode === 'local' && syncStatus === 'offline' ? (
-          <div className="offline-banner" role="status">
+          <div
+            className="mb-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm"
+            role="status"
+          >
             You're offline — showing your last synced version. Changes will sync once you're back online.
           </div>
         ) : null}
 
-        <div className="header-top">
-          <nav className="breadcrumbs" aria-label="Zoom trail">
-            <button
+        <div className="flex items-start justify-between gap-3">
+          <nav className="mb-1.5 flex flex-wrap items-center gap-y-0.5 text-sm" aria-label="Zoom trail">
+            <Button
               type="button"
-              className={`crumb crumb--icon ${state.zoomPath.length === 0 ? 'active' : ''}`}
+              variant="ghost"
+              size="icon-sm"
               aria-label="Home"
+              className={cn(state.zoomPath.length === 0 && 'text-foreground font-semibold')}
               onClick={() => dispatch({ type: 'ZOOM_TO_LEVEL', level: 0 })}
             >
-              <HomeIcon />
-            </button>
+              <Home className="size-4" aria-hidden />
+            </Button>
             {state.zoomPath.map((id, i) => {
               const n = findNodeById(state.tree, id);
               const label = (n?.text ?? '').trim() || 'Untitled';
               const short = label.length > 32 ? `${label.slice(0, 32)}…` : label;
               const isLast = i === state.zoomPath.length - 1;
               return (
-                <span key={id} className="crumb-wrap">
-                  <span className="crumb-sep" aria-hidden>
+                <span key={id} className="flex items-center">
+                  <span className="mx-1 text-muted-foreground" aria-hidden>
                     /
                   </span>
-                  <button
+                  <Button
                     type="button"
-                    className={isLast ? 'crumb active' : 'crumb'}
+                    variant="ghost"
+                    size="sm"
+                    className={cn(isLast && 'text-foreground font-semibold', isLast && 'cursor-default')}
                     onClick={() => dispatch({ type: 'ZOOM_TO_LEVEL', level: i + 1 })}
                   >
                     {short}
-                  </button>
+                  </Button>
                 </span>
               );
             })}
           </nav>
         </div>
 
-        {title !== null && <h1 className="page-title">{title}</h1>}
+        {title !== null && <h1 className="mt-1 text-2xl font-semibold text-balance">{title}</h1>}
       </header>
 
       <main className="app-main">
@@ -190,30 +165,38 @@ function Shell() {
       </main>
 
       {shareMessage ? (
-        <div className="share-toast" role="status">
+        <Badge
+          variant="secondary"
+          className="fixed bottom-22 left-1/2 z-40 -translate-x-1/2 px-3 py-1.5 text-sm shadow-lg"
+          role="status"
+        >
           {shareMessage}
-        </div>
+        </Badge>
       ) : null}
 
       {!readOnly ? (
-        <button
+        <Button
           type="button"
-          className="add-bullet-fab"
+          variant="ghost"
+          size="icon-lg"
           aria-label="Add bullet"
+          className="add-bullet-fab fixed bottom-4 z-40"
           onClick={addBullet}
         >
-          <PlusIcon />
-        </button>
+          <Plus className="size-5" aria-hidden />
+        </Button>
       ) : null}
 
-      <button
+      <Button
         type="button"
-        className="settings-fab"
+        variant="ghost"
+        size="icon-lg"
         aria-label="Settings"
+        className="settings-fab fixed bottom-4 z-40"
         onClick={() => setSettingsOpen(true)}
       >
-        <GearIcon />
-      </button>
+        <Settings className="size-5" aria-hidden />
+      </Button>
 
       <SettingsPanel
         open={settingsOpen}

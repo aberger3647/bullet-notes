@@ -46,12 +46,15 @@ notes**, not failing tests. Nothing is marked `it.fails` because nothing genuine
 - **Dead code:** `filterCompletedVisible` (`src/state/treeOps.ts:135`) is exported but never
   called anywhere except its own recursion — the app filters completed bullets inline in
   `AppStateProvider` and `BulletList` instead. Flagging, not removing (not in scope).
-- **Pre-existing lint failures:** `npm run lint` reports 22 errors + 2 warnings, all in
-  `src/sync/*` and `src/context/*` (ref-during-render / setState-in-effect rules). These
-  predate this suite (identical on the base commit) and are unrelated to it. CI runs lint as
-  a **non-blocking** step so its signal stays visible without turning CI red; clean these up
-  in a separate pass if you want lint gating.
-- **Sync layer is intentionally not unit-tested.** `src/sync/*` (Supabase realtime, network)
-  is mocked globally in `src/test/setup.ts` and excluded from coverage. Provider/App/List
-  integration tests run the *real* reducer against those mocks. End-to-end sync/collab is
-  better covered by an E2E tool (out of scope here).
+- **Lint is now clean and blocking.** The 22 errors + 2 warnings this file used to describe
+  (`react-hooks/refs` / `react-hooks/set-state-in-effect` in `src/sync/*` and `src/context/*`)
+  were fixed — moved "always-fresh ref" assignments into a bare `useEffect`, and replaced
+  `setState` at the top of data-fetching effects with the "adjust state during render"
+  pattern. `npm run lint` is enforced (no `continue-on-error`) in CI.
+- **Sync layer is intentionally not unit-tested** at the hook level. `src/sync/*` (Supabase
+  realtime, network) is mocked globally in `src/test/setup.ts` and excluded from coverage.
+  Provider/App/List integration tests run the *real* reducer against those mocks.
+  **End-to-end coverage now exists** (`npm run e2e`, Playwright, `e2e/`) for local editing and
+  shared/collab document loading (including view-only enforcement) with all Supabase traffic
+  mocked at the network layer — see `AGENTS.md` for how to test real two-client realtime
+  collaboration against the live instance, which isn't wired into CI.

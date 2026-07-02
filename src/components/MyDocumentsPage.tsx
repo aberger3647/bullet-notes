@@ -3,6 +3,7 @@ import { useAppState } from '../hooks/useAppState';
 import { useDocumentsList } from '../sync/useDocumentsList';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { deriveDocTitle } from '../state/treeOps';
+import { Button } from '@/components/ui/button';
 
 export function MyDocumentsPage() {
   const navigate = useNavigate();
@@ -33,50 +34,56 @@ export function MyDocumentsPage() {
   };
 
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <button type="button" className="crumb" onClick={() => navigate('/')}>
+    <div className="mx-auto max-w-2xl px-4 pt-5 pb-22">
+      <header className="mb-4">
+        <Button type="button" variant="ghost" size="sm" className="-ml-1.5" onClick={() => navigate('/')}>
           ← Back
-        </button>
-        <h1 className="page-title">My Documents</h1>
+        </Button>
+        <h1 className="mt-1 text-2xl font-semibold">My Documents</h1>
       </header>
 
-      <main className="app-main">
+      <main>
         {!enabled ? (
-          <p className="hint">Supabase is not configured, so documents can't be saved to the cloud.</p>
+          <p className="text-sm text-muted-foreground">
+            Supabase is not configured, so documents can't be saved to the cloud.
+          </p>
         ) : (
           <>
-            <div className="icon-row outline-actions">
-              <button type="button" className="icon-action" onClick={() => void onCreateBlank()}>
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="sm" className="flex-1" onClick={() => void onCreateBlank()}>
                 + New document
-              </button>
-              <button type="button" className="icon-action" onClick={() => void onSaveCurrentAsDocument()}>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => void onSaveCurrentAsDocument()}
+              >
                 Save my primary outline as a new document
-              </button>
+              </Button>
             </div>
 
-            {loading ? <p className="hint">Loading…</p> : null}
-            {error ? <p className="hint">Could not load your documents.</p> : null}
+            {loading ? <p className="mt-2.5 text-sm text-muted-foreground">Loading…</p> : null}
+            {error ? <p className="mt-2.5 text-sm text-muted-foreground">Could not load your documents.</p> : null}
 
             {!loading && !error && documents.length === 0 ? (
-              <p className="empty-hint">No saved documents yet.</p>
+              <p className="mt-2.5 text-sm text-muted-foreground">No saved documents yet.</p>
             ) : null}
 
-            <ul className="search-results" role="listbox" aria-label="My documents">
+            <ul className="mt-2.5 rounded-lg border" role="listbox" aria-label="My documents">
               {documents.map((doc) => (
-                <li key={doc.id}>
-                  <div className="search-result" role="option">
-                    <button
-                      type="button"
-                      className="settings-nav-link-label"
-                      onClick={() => navigate(`/page/${doc.id}`)}
-                    >
-                      {doc.title}
-                    </button>
-                    <button type="button" className="icon-action" onClick={() => onDelete(doc.id)}>
-                      Delete
-                    </button>
-                  </div>
+                <li
+                  key={doc.id}
+                  className="flex items-center justify-between gap-3 border-b px-3 py-2 last:border-b-0"
+                  role="option"
+                >
+                  <Button type="button" variant="link" className="h-auto p-0" onClick={() => navigate(`/page/${doc.id}`)}>
+                    {doc.title}
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => onDelete(doc.id)}>
+                    Delete
+                  </Button>
                 </li>
               ))}
             </ul>

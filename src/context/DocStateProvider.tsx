@@ -212,7 +212,7 @@ export function DocStateProvider({ children, docId }: Props) {
 
   if (syncStatus === 'loading' || syncStatus === 'idle') {
     return (
-      <div className="loading-screen">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2 p-8 text-center">
         <p>Loading document…</p>
       </div>
     );
@@ -220,9 +220,9 @@ export function DocStateProvider({ children, docId }: Props) {
 
   if (syncStatus === 'error') {
     return (
-      <div className="loading-screen">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2 p-8 text-center">
         <p>Could not load this document.</p>
-        <p className="hint">Check your connection and try again.</p>
+        <p className="text-sm text-muted-foreground">Check your connection and try again.</p>
       </div>
     );
   }

@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppState } from '../hooks/useAppState';
 import { collectAllTags, searchBullets } from '../state/treeOps';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 
 type Props = {
   onNavigate?: () => void;
@@ -32,54 +35,56 @@ export function SearchSection({ onNavigate, focusToken }: Props) {
 
   return (
     <>
-      <label className="search-label" htmlFor="app-search">
+      <Label htmlFor="app-search" className="mb-1.5">
         Find bullets
-      </label>
-      <input
+      </Label>
+      <Input
         id="app-search"
         ref={inputRef}
         type="search"
-        className="search-input"
         placeholder="Search notes…"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         autoComplete="off"
+        className="mb-2"
       />
       {allTags.length > 0 ? (
-        <div className="search-tags" role="group" aria-label="Tags">
+        <div className="mb-2 flex flex-wrap gap-1.5" role="group" aria-label="Tags">
           {allTags.map((tag) => (
-            <button
+            <Button
               key={tag}
               type="button"
-              className="search-tag-chip"
+              variant="secondary"
+              size="sm"
+              className="h-auto rounded-full px-2.5 py-0.5"
               onClick={() => setQuery(`#${tag}`)}
             >
               #{tag}
-            </button>
+            </Button>
           ))}
         </div>
       ) : null}
       {query.trim() ? (
         results.length > 0 ? (
-          <ul className="search-results" role="listbox" aria-label="Search results">
+          <ul className="max-h-48 overflow-y-auto rounded-lg border" role="listbox" aria-label="Search results">
             {results.map((match) => (
               <li key={match.id}>
                 <button
                   type="button"
-                  className="search-result"
+                  className="flex w-full flex-col items-start gap-0.5 border-b px-2.5 py-2 text-left last:border-b-0 hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
                   role="option"
                   onClick={() => goToResult(match.id)}
                 >
-                  <span className="search-result-text">{match.text}</span>
+                  <span className="text-sm break-words">{match.text}</span>
                   {match.breadcrumb.length > 0 ? (
-                    <span className="search-result-path">{match.breadcrumb.join(' / ')}</span>
+                    <span className="text-xs text-muted-foreground">{match.breadcrumb.join(' / ')}</span>
                   ) : null}
                 </button>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="hint search-empty">No bullets match your search.</p>
+          <p className="text-sm text-muted-foreground">No bullets match your search.</p>
         )
       ) : null}
     </>

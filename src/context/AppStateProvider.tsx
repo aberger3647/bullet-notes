@@ -521,7 +521,7 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
 
   if (isShared && (resolvedSyncStatus === 'loading' || resolvedSyncStatus === 'idle')) {
     return (
-      <div className="loading-screen">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2 p-8 text-center">
         <p>Loading shared notes…</p>
       </div>
     );
@@ -529,7 +529,7 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
 
   if (isLocal && (resolvedSyncStatus === 'loading' || resolvedSyncStatus === 'idle')) {
     return (
-      <div className="loading-screen">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2 p-8 text-center">
         <p>Loading your notes…</p>
       </div>
     );
@@ -537,18 +537,18 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
 
   if (isShared && resolvedSyncStatus === 'error') {
     return (
-      <div className="loading-screen">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2 p-8 text-center">
         <p>Could not load this shared document.</p>
-        <p className="hint">Check the link or try again later.</p>
+        <p className="text-sm text-muted-foreground">Check the link or try again later.</p>
       </div>
     );
   }
 
   if (isLocal && resolvedSyncStatus === 'error') {
     return (
-      <div className="loading-screen">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2 p-8 text-center">
         <p>Could not load your notes.</p>
-        <p className="hint">Check your connection and try again.</p>
+        <p className="text-sm text-muted-foreground">Check your connection and try again.</p>
       </div>
     );
   }

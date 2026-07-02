@@ -29,11 +29,14 @@ Non-obvious caveats worth remembering:
   localStorage (`bullet-notes:v1:expanded` / `bullet-notes:v1:history`) — see `AppStateProvider.tsx`.
   This replaces the old "collapsed by default after reload" behavior.
 - **Migrations**: `postinstall`/`npm run migrate` run `scripts/migrate.mjs`, which no-ops unless
-  `SUPABASE_DB_URL` is set. The shared Supabase already has `001_documents.sql` /
-  `002_user_documents.sql` applied. Migrations `003`–`006` (multi-document support, version-history
-  snapshots, view-only share permissions + share management, delete-my-data) were added but **not yet
-  applied** to the shared instance — run `npm run migrate` with `SUPABASE_DB_URL` set to apply them
-  before relying on those features against it.
+  `SUPABASE_DB_URL` is set. All of `001_documents.sql` through `006_delete_my_data.sql` are applied
+  to the shared instance (`bullet_notes_schema_migrations` tracks them) — multi-document support,
+  version-history snapshots, view-only share permissions + share management, and delete-my-data are
+  all live. This box has no `SUPABASE_DB_URL`/`DATABASE_URL` reachable from a sandboxed agent
+  environment; migrations were applied by connecting directly to the Postgres container on the
+  Dokploy box (`ssh alex`, `docker exec cf-supabase-dygaax-supabase-db psql -U postgres -d postgres`
+  — local trust auth, no password needed inside the container). See the `dokploy-deploy` skill for
+  that box's other gotchas (compose-stack networking, etc.) before touching it again.
 - **E2E tests** (`npm run e2e`, Playwright) mock all Supabase network/auth/realtime traffic — see
   `e2e/support/mockSupabase.ts` — so they run without any live backend and are safe for CI. They do
   **not** verify real two-client realtime collaboration (Supabase Realtime's Phoenix-channel protocol

@@ -1,7 +1,10 @@
 import { useState } from 'react';
+import { IndentIncrease, IndentDecrease, Check, Users, Trash2 } from 'lucide-react';
 import { useAppState } from '../hooks/useAppState';
 import { openShareSheet, shareUrl } from '../lib/shareNode';
 import { findNodeById, locateNode } from '../state/treeOps';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 function toolbarPointerAction(
   e: React.PointerEvent,
@@ -11,56 +14,6 @@ function toolbarPointerAction(
   e.preventDefault();
   keepEditingBullet();
   action();
-}
-
-function IndentIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12H11" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="m18 9 3 3-3 3" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 6v12" />
-    </svg>
-  );
-}
-
-function OutdentIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 12h10" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="m6 9-3 3 3 3" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M21 6v12" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
-
-function UsersIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M22 21v-2a4 4 0 0 0-3-3.87" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-.6 13.2A2 2 0 0 1 16.4 21H7.6a2 2 0 0 1-2-1.8L5 6" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M10 11v6" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M14 11v6" />
-    </svg>
-  );
 }
 
 export function MobileEditToolbar() {
@@ -144,55 +97,70 @@ export function MobileEditToolbar() {
   };
 
   return (
-    <div className="mobile-edit-toolbar" role="toolbar" aria-label="Bullet actions">
-      <button
+    <div
+      className="mobile-edit-toolbar shadow-[0_-4px_16px_oklch(0_0_0/8%)]"
+      role="toolbar"
+      aria-label="Bullet actions"
+    >
+      <Button
         type="button"
-        className="mobile-edit-toolbar-btn"
+        variant="ghost"
+        className="h-11 flex-1 touch-manipulation select-none"
         aria-label="Indent"
         disabled={!canIndent}
         onPointerDown={(e) => toolbarPointerAction(e, keepEditingBullet, onIndent)}
       >
-        <IndentIcon />
-      </button>
+        <IndentIncrease className="size-5.5" aria-hidden />
+      </Button>
 
-      <button
+      <Button
         type="button"
-        className="mobile-edit-toolbar-btn"
+        variant="ghost"
+        className="h-11 flex-1 touch-manipulation select-none"
         aria-label="Outdent"
         disabled={!canOutdent}
         onPointerDown={(e) => toolbarPointerAction(e, keepEditingBullet, onOutdent)}
       >
-        <OutdentIcon />
-      </button>
+        <IndentDecrease className="size-5.5" aria-hidden />
+      </Button>
 
-      <button
+      <Button
         type="button"
-        className={`mobile-edit-toolbar-btn ${isCompleted ? 'mobile-edit-toolbar-btn--active' : ''}`}
+        variant="ghost"
+        className={cn(
+          'h-11 flex-1 touch-manipulation select-none',
+          isCompleted && 'text-primary',
+        )}
         aria-label={isCompleted ? 'Mark incomplete' : 'Mark complete'}
         aria-pressed={isCompleted}
         onPointerDown={(e) => toolbarPointerAction(e, keepEditingBullet, onComplete)}
       >
-        <CheckIcon />
-      </button>
+        <Check className="size-5.5" aria-hidden />
+      </Button>
 
-      <button
+      <Button
         type="button"
-        className={`mobile-edit-toolbar-btn ${isShared ? 'mobile-edit-toolbar-btn--active' : ''}`}
+        variant="ghost"
+        className={cn(
+          'h-11 flex-1 touch-manipulation select-none',
+          isShared && 'text-primary',
+        )}
         aria-label={isShared ? 'Shared — tap to share link' : 'Share'}
         disabled={shareBusy}
         onPointerDown={onSharePointerDown}
       >
-        <UsersIcon />
-      </button>
+        <Users className="size-5.5" aria-hidden />
+      </Button>
 
-      <button
+      <Button
         type="button"
-        className="mobile-edit-toolbar-btn mobile-edit-toolbar-btn--danger"
+        variant="ghost"
+        className="h-11 flex-1 touch-manipulation select-none text-destructive hover:text-destructive"
         aria-label="Delete bullet"
         onPointerDown={(e) => toolbarPointerAction(e, keepEditingBullet, onDelete)}
       >
-        <TrashIcon />
-      </button>
+        <Trash2 className="size-5.5" aria-hidden />
+      </Button>
     </div>
   );
 }

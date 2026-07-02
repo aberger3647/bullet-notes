@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 function GoogleIcon() {
   return (
@@ -41,24 +43,30 @@ export function LoginScreen() {
   };
 
   return (
-    <div className="login-screen">
-      <div className="login-card">
-        <h1 className="login-title">Bullet Notes</h1>
-        <p className="login-lead">
-          Sign in to access your notes. Your outline is saved securely in the cloud and syncs across
-          devices.
-        </p>
-        <button
-          type="button"
-          className="login-google-btn"
-          onClick={() => void handleSignIn()}
-          disabled={busy}
-        >
-          <GoogleIcon />
-          {busy ? 'Redirecting…' : 'Sign in with Google'}
-        </button>
-        {error ? <p className="login-error">{error}</p> : null}
-      </div>
+    <div className="flex min-h-screen items-center justify-center p-8">
+      <Card className="w-full max-w-sm text-center">
+        <CardHeader>
+          <CardTitle className="text-2xl">Bullet Notes</CardTitle>
+          <CardDescription>
+            Sign in to access your notes. Your outline is saved securely in the cloud and syncs across
+            devices.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            className="w-full"
+            onClick={() => void handleSignIn()}
+            disabled={busy}
+          >
+            <GoogleIcon />
+            {busy ? 'Redirecting…' : 'Sign in with Google'}
+          </Button>
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useEffect, useRef, useState } from 'react';
+import { Users } from 'lucide-react';
 import { useAppState } from '../hooks/useAppState';
 import type { BulletNode } from '../state/types';
 import {
@@ -10,6 +11,8 @@ import {
   serializeOutlineClipboardText,
 } from '../state/treeOps';
 import { colorForClientId } from '../lib/presenceColor';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 const SWIPE_REVEAL_MAX = -88;
 const SWIPE_DELETE_THRESHOLD = -72;
@@ -27,17 +30,6 @@ export type BulletRowProps = {
   prevVisibleId?: string;
   nextVisibleId?: string;
 };
-
-function UsersIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M22 21v-2a4 4 0 0 0-3-3.87" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  );
-}
 
 function selectAllContents(el: HTMLElement) {
   const range = document.createRange();
@@ -355,9 +347,11 @@ export function BulletRow({
       </div>
       <div className="bullet-row-content" style={{ transform: `translateX(${swipeOffset}px)` }}>
       <div className="share-slot">
-        <button
+        <Button
           type="button"
-          className={`share-btn ${isShared ? 'share-btn--active' : ''}`}
+          variant="ghost"
+          size="icon-sm"
+          className={cn('share-btn', isShared && 'text-primary')}
           aria-label={isShared ? 'Shared — tap to share link' : 'Share this bullet'}
           disabled={shareBusy}
           onClick={(e) => {
@@ -365,8 +359,8 @@ export function BulletRow({
             onShareClick();
           }}
         >
-          <UsersIcon />
-        </button>
+          <Users className="size-3.5" aria-hidden />
+        </Button>
       </div>
 
       <div className="disclosure-slot">

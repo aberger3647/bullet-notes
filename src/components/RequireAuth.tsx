@@ -12,16 +12,16 @@ export function RequireAuth({ children }: Props) {
 
   if (!isSupabaseConfigured()) {
     return (
-      <div className="loading-screen">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2 p-8 text-center">
         <p>Supabase is not configured.</p>
-        <p className="hint">Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY, then rebuild.</p>
+        <p className="text-sm text-muted-foreground">Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY, then rebuild.</p>
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="loading-screen">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2 p-8 text-center">
         <p>Loading…</p>
       </div>
     );

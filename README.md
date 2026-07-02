@@ -23,7 +23,11 @@ Anyone who wants a simple way to:
 - Focus on one section at a time with zoomed-in views 🔍
 - Mark completed bullets and hide finished work ✅
 - Reorder notes by dragging bullets around 🖱️
-- Share bullets for real-time collaboration with others 🔗
+- Duplicate, copy/paste, and merge whole branches of an outline 🌿
+- Tag bullets and search by tag, text, or hierarchy 🏷️
+- Keep more than one document, plus daily notes and reusable templates 📚
+- Share bullets for real-time collaboration, with view-only links when you don't want editors 🔗
+- Roll back to an earlier version, or export/import your notes 🕰️
 
 ---
 
@@ -55,16 +59,22 @@ Anyone who wants a simple way to:
 
 ## ✨ Features
 
-- 📝 Fast bullet entry with keyboard shortcuts
+- 📝 Fast bullet entry with keyboard shortcuts, including multi-line bullets (`Shift+Enter`)
 - 🌲 Nested parent and child bullets
 - 🔍 Zoom into any bullet to focus on its children
 - ✅ Completed bullets with strikethrough
 - 🙈 Toggle to hide completed bullets
-- 🖱️ Drag-and-drop reordering and nesting
-- ↩️ Undo and redo controls
+- 🖱️ Drag-and-drop reordering and nesting (plus swipe-to-delete on mobile)
+- 🌿 Duplicate, merge, and copy/paste whole bullet subtrees
+- 🏷️ `#tag` bullets and browse/filter by tag, alongside full-text and hierarchy search (`Cmd/Ctrl+K`)
+- ↩️ Undo and redo controls, persisted across reloads
 - 🌗 Light and dark mode
-- ☁️ Cloud storage synced to your Google account
-- 🔗 Per-bullet sharing with real-time collaboration
+- ☁️ Cloud storage synced to your Google account, with offline fallback and an installable app shell
+- 📤 Export to Markdown/text/JSON, import from JSON/Markdown/text outlines
+- 📚 Multiple documents, daily notes, and reusable templates
+- 🕰️ Automatic daily version-history snapshots with one-click restore
+- 🔗 Per-bullet sharing with real-time collaboration, view-only links, and share revocation
+- 👤 Profile display name, and a self-service "delete my data" option
 
 ---
 
@@ -104,14 +114,26 @@ To build for production:
 npm run build
 ```
 
+### Testing
+
+```bash
+npm test        # unit + integration tests (Vitest)
+npm run e2e     # end-to-end tests (Playwright, browser-driven)
+npm run lint    # ESLint
+```
+
+E2E tests mock all Supabase network/auth/realtime traffic (see `e2e/support/mockSupabase.ts`), so they run without a live backend. They don't exercise real two-client realtime collaboration — see `AGENTS.md` for how to test that manually against a live instance.
+
 ---
 
 ## 🗺️ Routes
 
 | Route | Description |
 |-------|-------------|
-| `/` | Your personal notes (requires sign-in) |
+| `/` | Your primary notes (requires sign-in) |
 | `/d/:shareToken` | A shared bullet subtree (requires sign-in) |
+| `/pages` | List/create/delete your extra documents (requires sign-in) |
+| `/page/:docId` | One extra document (requires sign-in) |
 | `/docs` | In-app documentation |
 
 ---
