@@ -5,13 +5,15 @@ import { listMyShares, revokeShare, setSharePermission, type ShareMeta } from '.
 export function useMySharesList(enabled: boolean) {
   const [shares, setShares] = useState<ShareMeta[]>([]);
   const [loading, setLoading] = useState(enabled);
+  const [error, setError] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!enabled || !isSupabaseConfigured()) return;
     try {
       setShares(await listMyShares());
+      setError(false);
     } catch {
-      /* best-effort; keep the previous list */
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -23,9 +25,12 @@ export function useMySharesList(enabled: boolean) {
     void (async () => {
       try {
         const list = await listMyShares();
-        if (!cancelled) setShares(list);
+        if (!cancelled) {
+          setShares(list);
+          setError(false);
+        }
       } catch {
-        /* best-effort */
+        if (!cancelled) setError(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -51,5 +56,5 @@ export function useMySharesList(enabled: boolean) {
     [refresh],
   );
 
-  return { shares, loading, refresh, togglePermission, revoke };
+  return { shares, loading, error, refresh, togglePermission, revoke };
 }

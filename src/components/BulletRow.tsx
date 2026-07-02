@@ -406,7 +406,7 @@ export function BulletRow({
         className={cn(
           'bullet-marker',
           hasChildren ? 'bullet-marker--parent' : 'bullet-marker--leaf',
-          isShared && 'bg-blue-500/15 dark:bg-blue-400/20',
+          isShared && 'bullet-marker--shared',
         )}
         aria-label="Open sub-bullets in page view"
         onClick={(e) => {

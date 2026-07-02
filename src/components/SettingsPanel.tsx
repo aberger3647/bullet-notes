@@ -117,7 +117,13 @@ export function SettingsPanel({ open, onClose, searchFocusToken }: Props) {
     }
   };
 
-  const { shares, loading: sharesLoading, togglePermission, revoke } = useMySharesList(open && !isShared);
+  const {
+    shares,
+    loading: sharesLoading,
+    error: sharesError,
+    togglePermission,
+    revoke,
+  } = useMySharesList(open && !isShared);
 
   const onToggleSharePermission = (shareToken: string, current: 'edit' | 'view') => {
     void togglePermission(shareToken, current === 'edit' ? 'view' : 'edit').catch(() => {
@@ -325,7 +331,10 @@ export function SettingsPanel({ open, onClose, searchFocusToken }: Props) {
               <section>
                 <SectionHeading>My shared links</SectionHeading>
                 {sharesLoading ? <ListSkeleton rows={2} /> : null}
-                {!sharesLoading && shares.length === 0 ? (
+                {!sharesLoading && sharesError ? (
+                  <p className="text-sm text-destructive">Could not load your shared links. Try again.</p>
+                ) : null}
+                {!sharesLoading && !sharesError && shares.length === 0 ? (
                   <p className="text-sm text-muted-foreground">You haven't shared any bullets yet.</p>
                 ) : null}
                 <ul className="rounded-lg border" role="listbox" aria-label="My shared links">

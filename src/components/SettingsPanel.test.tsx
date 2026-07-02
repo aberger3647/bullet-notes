@@ -48,7 +48,8 @@ const revokeShareMock = vi.fn().mockResolvedValue(undefined);
 let sharesState: {
   shares: Array<{ id: string; share_token: string; updated_at: string; permission: 'edit' | 'view'; revoked: boolean }>;
   loading: boolean;
-} = { shares: [], loading: false };
+  error?: boolean;
+} = { shares: [], loading: false, error: false };
 const useMySharesListMock = vi.fn((enabled: boolean) => ({
   ...sharesState,
   enabled,
@@ -67,7 +68,7 @@ describe('SettingsPanel', () => {
     snapshotsState = { snapshots: [], loading: false };
     restoreSnapshotMock.mockClear();
     useSnapshotsListMock.mockClear();
-    sharesState = { shares: [], loading: false };
+    sharesState = { shares: [], loading: false, error: false };
     togglePermissionMock.mockClear();
     revokeShareMock.mockClear();
     useMySharesListMock.mockClear();
@@ -202,6 +203,13 @@ describe('SettingsPanel', () => {
   it('does not enable the shares fetch while closed', () => {
     renderWithContext(<SettingsPanel open={false} onClose={() => {}} />);
     expect(useMySharesListMock).toHaveBeenCalledWith(false);
+  });
+
+  it('shows an error message instead of silently claiming no shares when the list fails to load', () => {
+    sharesState = { shares: [], loading: false, error: true };
+    renderWithContext(<SettingsPanel open onClose={() => {}} />, { state: makeState([node('a')]) });
+    expect(screen.getByText(/could not load your shared links/i)).toBeInTheDocument();
+    expect(screen.queryByText("You haven't shared any bullets yet.")).not.toBeInTheDocument();
   });
 
   it('pre-fills the display name and saves it', async () => {

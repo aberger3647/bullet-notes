@@ -115,7 +115,7 @@
 }
 
 .bullet-row--selected .bullet-row-content {
-  background: color-mix(in oklch, var(--color-blue-500) 10%, var(--background));
+  background: color-mix(in oklch, oklch(62.3% 0.214 259.815) 10%, var(--background));
 }
 
 .bullet-row:hover .disclosure,
@@ -124,8 +124,7 @@
 }
 
 .bullet-row:hover .share-btn,
-.bullet-row:focus-within .share-btn,
-.bullet-row--shared .share-btn {
+.bullet-row:focus-within .share-btn {
   opacity: 1;
 }
 
@@ -267,6 +266,19 @@
 .bullet-marker--leaf:hover,
 .bullet-marker--parent:hover {
   background: var(--accent);
+}
+
+/* Two-class selectors to match :hover's specificity and win by source order,
+   since App.css is unlayered and would otherwise need this anyway — but the
+   plain :hover rule above still has equal specificity, so order matters. */
+.bullet-marker--leaf.bullet-marker--shared,
+.bullet-marker--parent.bullet-marker--shared {
+  background: color-mix(in oklch, oklch(62.3% 0.214 259.815) 15%, transparent);
+}
+
+html[data-theme='dark'] .bullet-marker--leaf.bullet-marker--shared,
+html[data-theme='dark'] .bullet-marker--parent.bullet-marker--shared {
+  background: color-mix(in oklch, oklch(70.7% 0.165 254.624) 20%, transparent);
 }
 
 .bullet-marker--leaf:focus-visible,
