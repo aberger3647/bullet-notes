@@ -20,15 +20,25 @@ Non-obvious caveats worth remembering:
   `http://localhost:5173/#access_token=<AT>&refresh_token=<RT>&token_type=bearer&expires_in=3600&type=magiclink`.
   A convenient pattern is a temporary same-origin redirect page under `public/` that
   `location.replace("/#...")` — delete it before committing.
-- **`npm run lint` currently fails** on the repo's own source (pre-existing `react-hooks` errors in
-  `useUserDocumentSync.ts` and others). This is a code issue, not an environment problem; the ESLint
-  tooling itself works.
-- **Persistence vs. collapse**: after a reload, parent bullets are **collapsed by default** (the
-  `expanded` set is local UI state that resets on load), so nested children are hidden under a filled
-  bullet. This is expected — it is not data loss. Verify persistence with a flat list or by expanding.
+- **`npm run lint` is clean** and enforced in CI (no `continue-on-error`). If you introduce new
+  `react-hooks/refs` / `react-hooks/set-state-in-effect` violations, fix them rather than suppressing —
+  see `src/sync/useDocumentSync.ts` / `useUserDocumentSync.ts` for the established patterns (move
+  "always-fresh ref" assignments into a bare `useEffect`, and use the "adjust state during render"
+  pattern instead of `setState` at the top of a data-fetching effect).
+- **Expand/collapse and undo history now persist** across reload for the local (`/`) document, via
+  localStorage (`bullet-notes:v1:expanded` / `bullet-notes:v1:history`) — see `AppStateProvider.tsx`.
+  This replaces the old "collapsed by default after reload" behavior.
 - **Migrations**: `postinstall`/`npm run migrate` run `scripts/migrate.mjs`, which no-ops unless
-  `SUPABASE_DB_URL` is set. The shared Supabase already has the schema/RPCs applied
-  (`bullet_notes_get_user_document`, `bullet_notes_save_user_document`, etc.), so migrations are not
-  needed for local dev against it.
+  `SUPABASE_DB_URL` is set. The shared Supabase already has `001_documents.sql` /
+  `002_user_documents.sql` applied. Migrations `003`–`006` (multi-document support, version-history
+  snapshots, view-only share permissions + share management, delete-my-data) were added but **not yet
+  applied** to the shared instance — run `npm run migrate` with `SUPABASE_DB_URL` set to apply them
+  before relying on those features against it.
+- **E2E tests** (`npm run e2e`, Playwright) mock all Supabase network/auth/realtime traffic — see
+  `e2e/support/mockSupabase.ts` — so they run without any live backend and are safe for CI. They do
+  **not** verify real two-client realtime collaboration (Supabase Realtime's Phoenix-channel protocol
+  isn't faithfully simulated). For that, use the phone-auth pattern above to drive two real browser
+  contexts against the live instance manually/locally; that scenario is intentionally not wired into CI
+  since it depends on shared live infrastructure.
 - When testing GUI flows with a subagent, instruct it **not to edit source or open DevTools** — it
   should only drive the browser; the app is already functional given a valid session.

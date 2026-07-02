@@ -21,7 +21,7 @@ export type HistoryState = {
   future: Snapshot[];
 };
 
-export type FocusCaret = 'all' | 'end';
+export type FocusCaret = 'all' | 'end' | { offset: number };
 
 export type AppState = {
   tree: BulletNode[];
@@ -48,6 +48,10 @@ export type AppAction =
   | { type: 'TOGGLE_COMPLETE'; id: string }
   | { type: 'SET_TEXT'; id: string; text: string }
   | { type: 'DELETE_NODE'; id: string }
+  | { type: 'MERGE_WITH_PREVIOUS'; id: string; targetId: string }
+  | { type: 'DUPLICATE_NODE'; id: string; newId?: string }
+  | { type: 'PASTE_SUBTREE'; afterId: string; subtree: BulletNode; newId?: string }
+  | { type: 'IMPORT_OUTLINE'; parentId: string; roots: BulletNode[] }
   | { type: 'SET_NODE_SHARE'; id: string; shareToken: string }
   | { type: 'SET_FOCUSED'; id: string | null; caret?: FocusCaret }
   | { type: 'ZOOM_INTO'; id: string; newChildId?: string }
@@ -58,6 +62,7 @@ export type AppAction =
   | { type: 'SET_THEME'; value: Settings['theme'] }
   | { type: 'UNDO' }
   | { type: 'REDO' }
+  | { type: 'RESTORE_HISTORY'; history: HistoryState }
   | {
       type: 'MOVE_NODE';
       activeId: string;

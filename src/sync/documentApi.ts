@@ -7,6 +7,8 @@ export type DocumentRow = {
   share_token: string;
   tree: BulletNode[];
   updated_at: string;
+  permission?: 'edit' | 'view';
+  revoked?: boolean;
 };
 
 export function parseBroadcastMessage(raw: unknown): BroadcastMessage | null {

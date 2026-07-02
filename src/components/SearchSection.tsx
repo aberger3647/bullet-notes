@@ -1,19 +1,28 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppState } from '../hooks/useAppState';
-import { searchBullets } from '../state/treeOps';
+import { collectAllTags, searchBullets } from '../state/treeOps';
 
 type Props = {
   onNavigate?: () => void;
+  /** Bump this to focus the search input (e.g. when opened via a Cmd/Ctrl+K shortcut). */
+  focusToken?: number;
 };
 
-export function SearchSection({ onNavigate }: Props) {
+export function SearchSection({ onNavigate, focusToken }: Props) {
   const { state, dispatch } = useAppState();
   const [query, setQuery] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (focusToken) inputRef.current?.focus();
+  }, [focusToken]);
 
   const results = useMemo(
     () => searchBullets(state.tree, query),
     [state.tree, query],
   );
+
+  const allTags = useMemo(() => collectAllTags(state.tree), [state.tree]);
 
   const goToResult = (id: string) => {
     dispatch({ type: 'NAVIGATE_TO_BULLET', id });
@@ -28,6 +37,7 @@ export function SearchSection({ onNavigate }: Props) {
       </label>
       <input
         id="app-search"
+        ref={inputRef}
         type="search"
         className="search-input"
         placeholder="Search notes…"
@@ -35,6 +45,20 @@ export function SearchSection({ onNavigate }: Props) {
         onChange={(e) => setQuery(e.target.value)}
         autoComplete="off"
       />
+      {allTags.length > 0 ? (
+        <div className="search-tags" role="group" aria-label="Tags">
+          {allTags.map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              className="search-tag-chip"
+              onClick={() => setQuery(`#${tag}`)}
+            >
+              #{tag}
+            </button>
+          ))}
+        </div>
+      ) : null}
       {query.trim() ? (
         results.length > 0 ? (
           <ul className="search-results" role="listbox" aria-label="Search results">

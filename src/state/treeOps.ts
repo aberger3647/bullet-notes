@@ -95,6 +95,27 @@ export function collectExpandableIds(nodes: BulletNode[]): string[] {
   return ids;
 }
 
+/** #tag tokens in `text` (lowercased, deduped, in first-seen order). */
+export function extractTags(text: string): string[] {
+  const matches = text.match(/#[a-zA-Z0-9_-]+/g) ?? [];
+  const seen = new Set<string>();
+  for (const m of matches) seen.add(m.slice(1).toLowerCase());
+  return [...seen];
+}
+
+/** Every distinct #tag used anywhere in the tree, sorted alphabetically. */
+export function collectAllTags(roots: BulletNode[]): string[] {
+  const tags = new Set<string>();
+  const walk = (nodes: BulletNode[]) => {
+    for (const n of nodes) {
+      for (const tag of extractTags(n.text)) tags.add(tag);
+      walk(n.children);
+    }
+  };
+  walk(roots);
+  return [...tags].sort();
+}
+
 export function searchBullets(roots: BulletNode[], query: string): SearchMatch[] {
   const parsed = parseSearchQuery(query);
   if (parsed.alternatives.length === 0) return [];
@@ -129,6 +150,26 @@ export function isDescendantOf(
     return false;
   };
   return walk(ancestor.children);
+}
+
+/** Ids of nodes actually rendered, in on-screen (depth-first) order — for arrow-key navigation. */
+export function getVisibleOrder(
+  nodes: BulletNode[],
+  expanded: Set<string>,
+  hideCompleted: boolean,
+): string[] {
+  const out: string[] = [];
+  const walk = (list: BulletNode[]) => {
+    const visible = hideCompleted ? list.filter((n) => !n.completed) : list;
+    for (const n of visible) {
+      out.push(n.id);
+      if (n.children.length > 0 && expanded.has(n.id)) {
+        walk(n.children);
+      }
+    }
+  };
+  walk(nodes);
+  return out;
 }
 
 /** Hide completed nodes at each level (and thus their subtrees in this view). */
@@ -182,6 +223,16 @@ export function cloneSubtree(node: BulletNode): BulletNode {
   return {
     ...node,
     children: node.children.map(cloneSubtree),
+  };
+}
+
+/** Deep clone a subtree with a fresh id at every level (for duplication); drops shareToken. */
+export function duplicateSubtree(node: BulletNode, genId: () => string): BulletNode {
+  return {
+    id: genId(),
+    text: node.text,
+    completed: node.completed,
+    children: node.children.map((child) => duplicateSubtree(child, genId)),
   };
 }
 
@@ -257,6 +308,37 @@ export function toggleComplete(roots: BulletNode[], id: string): BulletNode[] {
   const siblings = [...loc.siblings];
   siblings[loc.index] = updated;
   return replaceSiblings(roots, loc.siblings, siblings);
+}
+
+/**
+ * Merge `id`'s text onto the end of `targetId`'s text and remove `id`.
+ * `id`'s own children take its old slot among its former siblings (they do not
+ * move under `targetId`), so joining a bullet with a distant/nested previous
+ * row doesn't relocate its children into an unrelated part of the tree.
+ */
+export function mergeNodeIntoPrevious(
+  roots: BulletNode[],
+  id: string,
+  targetId: string,
+): BulletNode[] {
+  if (id === targetId) return roots;
+  const loc = locateNode(roots, id);
+  if (!loc) return roots;
+  if (!locateNode(roots, targetId)) return roots;
+
+  const splicedSiblings = [
+    ...loc.siblings.slice(0, loc.index),
+    ...loc.node.children,
+    ...loc.siblings.slice(loc.index + 1),
+  ];
+  const treeAfterRemoval = replaceSiblings(roots, loc.siblings, splicedSiblings);
+
+  const targetLoc = locateNode(treeAfterRemoval, targetId);
+  if (!targetLoc) return roots;
+  const mergedTarget: BulletNode = { ...targetLoc.node, text: targetLoc.node.text + loc.node.text };
+  const targetSiblings = [...targetLoc.siblings];
+  targetSiblings[targetLoc.index] = mergedTarget;
+  return replaceSiblings(treeAfterRemoval, targetLoc.siblings, targetSiblings);
 }
 
 export function setNodeText(roots: BulletNode[], id: string, text: string): BulletNode[] {
@@ -391,6 +473,54 @@ export function setNodeShareToken(roots: BulletNode[], id: string, shareToken: s
   return replaceSiblings(roots, loc.siblings, siblings);
 }
 
+/** Custom clipboard MIME type used to round-trip a copied subtree (structure + text) between bullets. */
+export const OUTLINE_CLIPBOARD_MIME = 'application/x-bullet-notes-outline';
+
+/** Human-readable tab-indented fallback, for pasting a copied subtree into other apps. */
+export function serializeOutlineClipboardText(node: BulletNode): string {
+  const lines: string[] = [];
+  const walk = (n: BulletNode, depth: number) => {
+    lines.push('\t'.repeat(depth) + n.text.replace(/\n/g, ' '));
+    n.children.forEach((child) => walk(child, depth + 1));
+  };
+  walk(node, 0);
+  return lines.join('\n');
+}
+
+/** Structured payload for the custom clipboard MIME type — preserves nesting exactly. */
+export function serializeOutlineClipboardJSON(node: BulletNode): string {
+  return JSON.stringify(cloneSubtree(node));
+}
+
+function isBulletNodeShape(value: unknown): value is BulletNode {
+  if (!value || typeof value !== 'object') return false;
+  const n = value as Record<string, unknown>;
+  return (
+    typeof n.id === 'string' &&
+    typeof n.text === 'string' &&
+    typeof n.completed === 'boolean' &&
+    Array.isArray(n.children) &&
+    n.children.every(isBulletNodeShape)
+  );
+}
+
+/** Parses our own outline clipboard payload; returns null for anything malformed/foreign. */
+export function parseOutlineClipboardJSON(json: string): BulletNode | null {
+  try {
+    const parsed: unknown = JSON.parse(json);
+    return isBulletNodeShape(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Title for a document, derived from its first top-level bullet's text. */
+export function deriveDocTitle(roots: BulletNode[]): string {
+  const raw = (roots[0]?.text ?? '').trim() || 'Untitled';
+  const max = 56;
+  return raw.length > max ? `${raw.slice(0, max)}…` : raw;
+}
+
 /** Collect node ids affected by an action (for routing broadcasts). */
 export function getActionNodeIds(action: AppAction): string[] {
   switch (action.type) {
@@ -400,6 +530,12 @@ export function getActionNodeIds(action: AppAction): string[] {
     case 'OUTDENT':
     case 'DELETE_NODE':
       return [action.id];
+    case 'MERGE_WITH_PREVIOUS':
+      return [action.id, action.targetId];
+    case 'DUPLICATE_NODE':
+      return [action.id, ...(action.newId ? [action.newId] : [])];
+    case 'PASTE_SUBTREE':
+      return [action.afterId, ...(action.newId ? [action.newId] : [])];
     case 'NEW_SIBLING_AFTER':
       return [action.afterId, ...(action.newId ? [action.newId] : [])];
     case 'NEW_SIBLING_BEFORE':

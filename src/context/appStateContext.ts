@@ -2,6 +2,7 @@ import { createContext, type Dispatch } from 'react';
 import type { ShareResult } from '../lib/shareNode';
 import type { AppAction, AppState, BulletNode } from '../state/types';
 import type { SyncConnectionStatus } from '../sync/syncTypes';
+import type { PresenceInfo } from '../sync/useDocumentSync';
 
 export type AppMode = 'local' | 'shared';
 
@@ -18,6 +19,8 @@ export type AppStateContextValue = {
   shareToken?: string;
   syncStatus: SyncConnectionStatus;
   otherEditors: number;
+  otherPresences: PresenceInfo[];
+  readOnly: boolean;
   shareNode: (id: string) => Promise<void>;
   shareNodeFromGesture: (id: string) => Promise<void>;
   getPendingShareToken: (id: string) => string | undefined;

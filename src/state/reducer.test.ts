@@ -168,6 +168,112 @@ describe('DELETE_NODE', () => {
   });
 });
 
+describe('DUPLICATE_NODE', () => {
+  it('inserts a copy right after the original, with a fresh id, and focuses it', () => {
+    const s = stateWith([node('a', [], { text: 'hello' }), node('b')]);
+    const next = appReducer(s, { type: 'DUPLICATE_NODE', id: 'a', newId: 'a-copy' });
+    expect(next.tree.map((n) => n.id)).toEqual(['a', 'a-copy', 'b']);
+    expect(next.tree[1]!.text).toBe('hello');
+    expect(next.focusedId).toBe('a-copy');
+    expect(next.history.past).toHaveLength(1);
+  });
+
+  it('duplicates children along with the node', () => {
+    const s = stateWith([node('a', [node('a1')])]);
+    const next = appReducer(s, { type: 'DUPLICATE_NODE', id: 'a', newId: 'a-copy' });
+    expect(next.tree.map((n) => n.id)).toEqual(['a', 'a-copy']);
+    expect(next.tree[1]!.children).toHaveLength(1);
+    expect(next.tree[1]!.children[0]!.id).not.toBe('a1');
+    expect(next.tree[1]!.children[0]!.text).toBe('a1');
+  });
+
+  it('returns the same state for a missing node', () => {
+    const s = stateWith([node('a')]);
+    expect(appReducer(s, { type: 'DUPLICATE_NODE', id: 'nope', newId: 'x' })).toBe(s);
+  });
+});
+
+describe('MERGE_WITH_PREVIOUS', () => {
+  it('merges text into the target, focuses it at the join offset, commits', () => {
+    const s = stateWith([node('a', [], { text: 'foo' }), node('b', [], { text: 'bar' })]);
+    const next = appReducer(s, { type: 'MERGE_WITH_PREVIOUS', id: 'b', targetId: 'a' });
+    expect(next.tree.map((n) => n.id)).toEqual(['a']);
+    expect(next.tree[0]!.text).toBe('foobar');
+    expect(next.focusedId).toBe('a');
+    expect(next.focusCaret).toEqual({ offset: 3 });
+    expect(next.history.past).toHaveLength(1);
+  });
+
+  it('returns the same state when either node is missing', () => {
+    const s = stateWith([node('a')]);
+    expect(appReducer(s, { type: 'MERGE_WITH_PREVIOUS', id: 'nope', targetId: 'a' })).toBe(s);
+    expect(appReducer(s, { type: 'MERGE_WITH_PREVIOUS', id: 'a', targetId: 'nope' })).toBe(s);
+  });
+
+  it('is a no-op when id === targetId', () => {
+    const s = stateWith([node('a')]);
+    expect(appReducer(s, { type: 'MERGE_WITH_PREVIOUS', id: 'a', targetId: 'a' })).toBe(s);
+  });
+});
+
+describe('PASTE_SUBTREE', () => {
+  it('inserts the pasted subtree after the target, with fresh ids, and focuses the root', () => {
+    const s = stateWith([node('a')]);
+    const pasted = node('x', [node('x1')], { text: 'pasted root' });
+    const next = appReducer(s, {
+      type: 'PASTE_SUBTREE',
+      afterId: 'a',
+      subtree: pasted,
+      newId: 'fresh-root',
+    });
+    expect(next.tree.map((n) => n.id)).toEqual(['a', 'fresh-root']);
+    expect(next.tree[1]!.text).toBe('pasted root');
+    expect(next.tree[1]!.children).toHaveLength(1);
+    expect(next.tree[1]!.children[0]!.id).not.toBe('x1');
+    expect(next.focusedId).toBe('fresh-root');
+    expect(next.history.past).toHaveLength(1);
+  });
+
+  it('strips any shareToken carried in the pasted data', () => {
+    const s = stateWith([node('a')]);
+    const pasted = node('x', [], { text: 'pasted', shareToken: 'stale-token' });
+    const next = appReducer(s, { type: 'PASTE_SUBTREE', afterId: 'a', subtree: pasted, newId: 'fresh' });
+    expect(next.tree[1]!.shareToken).toBeUndefined();
+  });
+
+  it('returns the same state when the target is missing', () => {
+    const s = stateWith([node('a')]);
+    expect(
+      appReducer(s, { type: 'PASTE_SUBTREE', afterId: 'nope', subtree: node('x'), newId: 'fresh' }),
+    ).toBe(s);
+  });
+});
+
+describe('IMPORT_OUTLINE', () => {
+  it('appends imported roots to the root level with fresh ids', () => {
+    const s = stateWith([node('a')]);
+    const imported = [node('x', [node('x1')], { text: 'imported' })];
+    const next = appReducer(s, { type: 'IMPORT_OUTLINE', parentId: '__root__', roots: imported });
+    expect(next.tree.map((n) => n.text)).toEqual(['a', 'imported']);
+    expect(next.tree[1]!.id).not.toBe('x');
+    expect(next.tree[1]!.children).toHaveLength(1);
+    expect(next.tree[1]!.children[0]!.id).not.toBe('x1');
+    expect(next.history.past).toHaveLength(1);
+  });
+
+  it('appends imported roots as children of a specific parent', () => {
+    const s = stateWith([node('a', [node('a1')])]);
+    const imported = [node('x', [], { text: 'imported' })];
+    const next = appReducer(s, { type: 'IMPORT_OUTLINE', parentId: 'a', roots: imported });
+    expect(next.tree[0]!.children.map((n) => n.text)).toEqual(['a1', 'imported']);
+  });
+
+  it('is a no-op for an empty import', () => {
+    const s = stateWith([node('a')]);
+    expect(appReducer(s, { type: 'IMPORT_OUTLINE', parentId: '__root__', roots: [] })).toBe(s);
+  });
+});
+
 describe('ZOOM_INTO', () => {
   it('zooms into a parent node, clears focus, commits', () => {
     const s = stateWith([node('a', [node('a1')])]);
@@ -320,6 +426,18 @@ describe('UNDO / REDO', () => {
       s = appReducer(s, { type: 'TOGGLE_COMPLETE', id: 'a' });
     }
     expect(s.history.past).toHaveLength(MAX_HISTORY);
+  });
+});
+
+describe('RESTORE_HISTORY', () => {
+  it('replaces history wholesale without touching tree/zoomPath/focus', () => {
+    const s = stateWith([node('a')], { zoomPath: [], focusedId: 'a' });
+    const savedHistory = { past: [{ tree: [node('old')], zoomPath: [] }], future: [] };
+    const next = appReducer(s, { type: 'RESTORE_HISTORY', history: savedHistory });
+    expect(next.history).toEqual(savedHistory);
+    expect(next.tree).toBe(s.tree);
+    expect(next.zoomPath).toBe(s.zoomPath);
+    expect(next.focusedId).toBe('a');
   });
 });
 

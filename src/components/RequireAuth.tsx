@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { isSupabaseConfigured } from '../lib/supabase';
-import { useAuth } from '../context/AuthProvider';
+import { useAuth } from '../hooks/useAuth';
 import { LoginScreen } from './LoginScreen';
 
 type Props = {

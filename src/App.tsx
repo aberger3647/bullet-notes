@@ -1,11 +1,13 @@
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Routes, Route, useParams } from 'react-router-dom';
 import { BulletList } from './components/BulletList';
 import { MobileEditToolbar } from './components/MobileEditToolbar';
 import { DocsPage } from './components/DocsPage';
+import { MyDocumentsPage } from './components/MyDocumentsPage';
 import { SettingsPanel } from './components/SettingsPanel';
 import { RequireAuth } from './components/RequireAuth';
 import { AppStateProvider } from './context/AppStateProvider';
+import { DocStateProvider } from './context/DocStateProvider';
 import { useAppState } from './hooks/useAppState';
 import { useGlobalUndoRedo } from './hooks/useGlobalUndoRedo';
 import { useDocumentTitle } from './hooks/useDocumentTitle';
@@ -71,9 +73,23 @@ function syncStatusLabel(status: string, otherEditors: number): string {
 }
 
 function Shell() {
-  const { state, dispatch, mode, syncStatus, otherEditors, shareMessage, editingBulletId } = useAppState();
+  const { state, dispatch, mode, syncStatus, otherEditors, readOnly, shareMessage, editingBulletId } =
+    useAppState();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [searchFocusToken, setSearchFocusToken] = useState(0);
   const keyboardBottom = useVisualViewportBottom();
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSettingsOpen(true);
+        setSearchFocusToken((t) => t + 1);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
   const shellStyle = useMemo(
     () => ({ '--keyboard-inset': `${keyboardBottom}px` }) as CSSProperties,
     [keyboardBottom],
@@ -119,11 +135,17 @@ function Shell() {
           <div className="shared-note-banner" role="status" aria-label="Shared note">
             <span className="shared-note-badge">
               <UsersIcon />
-              Shared note
+              {readOnly ? 'Shared note (view only)' : 'Shared note'}
             </span>
             <span className={`shared-note-sync sync-status sync-status--${syncStatus}`}>
               {syncStatusLabel(syncStatus, otherEditors)}
             </span>
+          </div>
+        ) : null}
+
+        {mode === 'local' && syncStatus === 'offline' ? (
+          <div className="offline-banner" role="status">
+            You're offline — showing your last synced version. Changes will sync once you're back online.
           </div>
         ) : null}
 
@@ -173,14 +195,16 @@ function Shell() {
         </div>
       ) : null}
 
-      <button
-        type="button"
-        className="add-bullet-fab"
-        aria-label="Add bullet"
-        onClick={addBullet}
-      >
-        <PlusIcon />
-      </button>
+      {!readOnly ? (
+        <button
+          type="button"
+          className="add-bullet-fab"
+          aria-label="Add bullet"
+          onClick={addBullet}
+        >
+          <PlusIcon />
+        </button>
+      ) : null}
 
       <button
         type="button"
@@ -191,7 +215,11 @@ function Shell() {
         <GearIcon />
       </button>
 
-      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsPanel
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        searchFocusToken={searchFocusToken}
+      />
 
       <MobileEditToolbar />
     </div>
@@ -207,6 +235,16 @@ function DocumentRoute({ mode }: { mode: 'local' | 'shared' }) {
   );
 }
 
+function DocPageRoute() {
+  const { docId } = useParams();
+  if (!docId) return null;
+  return (
+    <DocStateProvider docId={docId}>
+      <Shell />
+    </DocStateProvider>
+  );
+}
+
 export default function App() {
   return (
     <Routes>
@@ -215,6 +253,22 @@ export default function App() {
         element={
           <RequireAuth>
             <DocsPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/pages"
+        element={
+          <RequireAuth>
+            <MyDocumentsPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/page/:docId"
+        element={
+          <RequireAuth>
+            <DocPageRoute />
           </RequireAuth>
         }
       />

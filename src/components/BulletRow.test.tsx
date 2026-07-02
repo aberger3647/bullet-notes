@@ -70,15 +70,295 @@ describe('BulletRow keyboard', () => {
     fireEvent.keyDown(editable(), { key: 'Enter', metaKey: true });
     expect(value.dispatch).toHaveBeenCalledWith({ type: 'TOGGLE_COMPLETE', id: 'n1' });
   });
+
+  it('Cmd/Ctrl+D duplicates this bullet', () => {
+    const { value } = renderRow(node('n1'));
+    fireEvent.keyDown(editable(), { key: 'd', metaKey: true });
+    expect(value.dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'DUPLICATE_NODE', id: 'n1' }),
+    );
+  });
 });
 
 describe('BulletRow text editing', () => {
-  it('sanitizes non-breaking spaces and newlines before dispatching SET_TEXT', () => {
+  it('sanitizes non-breaking spaces before dispatching SET_TEXT', () => {
     const { value } = renderRow(node('n1'));
     const el = editable();
-    el.textContent = 'a b\nc';
+    el.textContent = 'a b';
     fireEvent.input(el);
-    expect(value.dispatch).toHaveBeenCalledWith({ type: 'SET_TEXT', id: 'n1', text: 'a bc' });
+    expect(value.dispatch).toHaveBeenCalledWith({ type: 'SET_TEXT', id: 'n1', text: 'a b' });
+  });
+
+  it('preserves literal newlines typed/pasted into the bullet (multi-line support)', () => {
+    const { value } = renderRow(node('n1'));
+    const el = editable();
+    el.textContent = 'a\nb';
+    fireEvent.input(el);
+    expect(value.dispatch).toHaveBeenCalledWith({ type: 'SET_TEXT', id: 'n1', text: 'a\nb' });
+  });
+});
+
+describe('BulletRow Shift+Enter (multi-line)', () => {
+  it('inserts a line break at the caret instead of creating a sibling', () => {
+    const { value } = renderRow(node('n1', [], { text: 'ab' }));
+    const el = editable();
+    setCaretAtOffset(el, 1);
+    fireEvent.keyDown(el, { key: 'Enter', shiftKey: true });
+    expect(value.dispatch).toHaveBeenCalledWith({ type: 'SET_TEXT', id: 'n1', text: 'a\nb' });
+    expect(value.dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'NEW_SIBLING_AFTER' }),
+    );
+  });
+});
+
+describe('BulletRow paste (multi-line)', () => {
+  it('preserves newlines from pasted text instead of collapsing them to spaces', () => {
+    const { value } = renderRow(node('n1', [], { text: '' }));
+    const el = editable();
+    const clipboardData = { getData: () => 'line1\nline2' };
+    fireEvent.paste(el, { clipboardData });
+    expect(value.dispatch).toHaveBeenCalledWith({ type: 'SET_TEXT', id: 'n1', text: 'line1\nline2' });
+  });
+});
+
+describe('BulletRow arrow-key navigation with multi-line text', () => {
+  it('ArrowDown moves within the text when not on the last line', () => {
+    const { value } = renderRow(node('n1', [], { text: 'a\nb' }), { nextVisibleId: 'next' });
+    const el = editable();
+    setCaretAtOffset(el, 0); // on the first line, of two
+    fireEvent.keyDown(el, { key: 'ArrowDown' });
+    expect(value.dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'SET_FOCUSED' }),
+    );
+  });
+
+  it('ArrowDown moves to the next bullet when on the last line', () => {
+    const { value } = renderRow(node('n1', [], { text: 'a\nb' }), { nextVisibleId: 'next' });
+    const el = editable();
+    setCaretAtOffset(el, 3); // on the second (last) line
+    fireEvent.keyDown(el, { key: 'ArrowDown' });
+    expect(value.dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'SET_FOCUSED', id: 'next' }),
+    );
+  });
+
+  it('ArrowUp moves within the text when not on the first line', () => {
+    const { value } = renderRow(node('n1', [], { text: 'a\nb' }), { prevVisibleId: 'prev' });
+    const el = editable();
+    setCaretAtOffset(el, 3); // on the second line
+    fireEvent.keyDown(el, { key: 'ArrowUp' });
+    expect(value.dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'SET_FOCUSED' }),
+    );
+  });
+
+  it('ArrowUp moves to the previous bullet when on the first line', () => {
+    const { value } = renderRow(node('n1', [], { text: 'a\nb' }), { prevVisibleId: 'prev' });
+    const el = editable();
+    setCaretAtOffset(el, 0);
+    fireEvent.keyDown(el, { key: 'ArrowUp' });
+    expect(value.dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'SET_FOCUSED', id: 'prev' }),
+    );
+  });
+});
+
+function fakeClipboardData(initial: Record<string, string> = {}) {
+  const store: Record<string, string> = { ...initial };
+  return {
+    setData: (type: string, val: string) => {
+      store[type] = val;
+    },
+    getData: (type: string) => store[type] ?? '',
+    types: Object.keys(store),
+    _store: store,
+  };
+}
+
+describe('BulletRow Cmd/Ctrl+Backspace (explicit delete)', () => {
+  it('deletes immediately when the bullet has no children', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const { value } = renderRow(node('n1', [], { text: 'hello' }));
+    fireEvent.keyDown(editable(), { key: 'Backspace', metaKey: true });
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(value.dispatch).toHaveBeenCalledWith({ type: 'DELETE_NODE', id: 'n1' });
+    confirmSpy.mockRestore();
+  });
+
+  it('asks for confirmation before deleting a bullet with children, and respects cancel', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const { value } = renderRow(node('parent', [node('c')]));
+    fireEvent.keyDown(editable(), { key: 'Backspace', ctrlKey: true });
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(value.dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'DELETE_NODE' }),
+    );
+    confirmSpy.mockRestore();
+  });
+
+  it('deletes a bullet with children once confirmed', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const { value } = renderRow(node('parent', [node('c')]));
+    fireEvent.keyDown(editable(), { key: 'Backspace', metaKey: true });
+    expect(value.dispatch).toHaveBeenCalledWith({ type: 'DELETE_NODE', id: 'parent' });
+    confirmSpy.mockRestore();
+  });
+
+  it('works regardless of caret position (not just at the start)', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const { value } = renderRow(node('n1', [], { text: 'hello' }));
+    const el = editable();
+    placeCaretAtEndHelper(el);
+    fireEvent.keyDown(el, { key: 'Backspace', metaKey: true });
+    expect(value.dispatch).toHaveBeenCalledWith({ type: 'DELETE_NODE', id: 'n1' });
+    confirmSpy.mockRestore();
+  });
+});
+
+describe('BulletRow copy (subtree)', () => {
+  it('copies the whole bullet + children as a readable outline and as structured JSON, when nothing is text-selected', () => {
+    const { value } = renderRow(node('n1', [node('c', [], { text: 'child' })], { text: 'parent' }));
+    const el = editable();
+    setCaretAtStart(el); // collapsed selection, not a text range
+    const clipboardData = fakeClipboardData();
+    fireEvent.copy(el, { clipboardData });
+    expect(clipboardData._store['text/plain']).toBe('parent\n\tchild');
+    const json = JSON.parse(clipboardData._store['application/x-bullet-notes-outline']!);
+    expect(json).toMatchObject({ text: 'parent', children: [{ text: 'child' }] });
+    expect(value.dispatch).not.toHaveBeenCalled();
+  });
+
+  it('does not hijack copy when there is an active text selection (lets default text-copy happen)', () => {
+    const { value } = renderRow(node('n1', [], { text: 'hello' }));
+    const el = editable();
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range); // non-collapsed selection
+    const clipboardData = fakeClipboardData();
+    fireEvent.copy(el, { clipboardData });
+    expect(clipboardData._store['text/plain']).toBeUndefined();
+    expect(value.dispatch).not.toHaveBeenCalled();
+  });
+});
+
+describe('BulletRow paste (subtree)', () => {
+  it('reconstructs a pasted subtree as a new sibling instead of flattening it into text', () => {
+    const { value } = renderRow(node('n1', [], { text: '' }));
+    const el = editable();
+    const outlineJson = JSON.stringify({
+      id: 'old-id',
+      text: 'copied root',
+      completed: false,
+      children: [{ id: 'old-child', text: 'copied child', completed: false, children: [] }],
+    });
+    const clipboardData = fakeClipboardData({ 'application/x-bullet-notes-outline': outlineJson });
+    fireEvent.paste(el, { clipboardData });
+    expect(value.dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'PASTE_SUBTREE',
+        afterId: 'n1',
+        subtree: expect.objectContaining({ text: 'copied root' }),
+      }),
+    );
+    expect(value.dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'SET_TEXT' }),
+    );
+  });
+
+  it('falls back to plain text insertion for regular (non-outline) paste', () => {
+    const { value } = renderRow(node('n1', [], { text: '' }));
+    const el = editable();
+    const clipboardData = fakeClipboardData({ 'text/plain': 'line1\nline2' });
+    fireEvent.paste(el, { clipboardData });
+    expect(value.dispatch).toHaveBeenCalledWith({ type: 'SET_TEXT', id: 'n1', text: 'line1\nline2' });
+  });
+});
+
+function swipeLeft(el: HTMLElement, distance: number) {
+  fireEvent.pointerDown(el, { pointerType: 'touch', pointerId: 1, clientX: 300, clientY: 100 });
+  fireEvent.pointerMove(el, { pointerType: 'touch', pointerId: 1, clientX: 300 - distance, clientY: 100 });
+  fireEvent.pointerUp(el, { pointerType: 'touch', pointerId: 1, clientX: 300 - distance, clientY: 100 });
+}
+
+describe('BulletRow swipe-to-delete (mobile)', () => {
+  it('deletes a leaf bullet on a full left swipe past the threshold', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const { value, container } = renderRow(node('n1', [], { text: 'hello' }));
+    const row = container.querySelector('.bullet-row') as HTMLElement;
+    swipeLeft(row, 100);
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(value.dispatch).toHaveBeenCalledWith({ type: 'DELETE_NODE', id: 'n1' });
+    confirmSpy.mockRestore();
+  });
+
+  it('confirms before deleting a bullet with children via swipe', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const { value, container } = renderRow(node('parent', [node('c')]));
+    const row = container.querySelector('.bullet-row') as HTMLElement;
+    swipeLeft(row, 100);
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(value.dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'DELETE_NODE' }),
+    );
+    confirmSpy.mockRestore();
+  });
+
+  it('does NOT delete on a short swipe that does not cross the threshold', () => {
+    const { value, container } = renderRow(node('n1', [], { text: 'hello' }));
+    const row = container.querySelector('.bullet-row') as HTMLElement;
+    swipeLeft(row, 20);
+    expect(value.dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'DELETE_NODE' }),
+    );
+  });
+
+  it('ignores non-touch (mouse) pointer input', () => {
+    const { value, container } = renderRow(node('n1', [], { text: 'hello' }));
+    const row = container.querySelector('.bullet-row') as HTMLElement;
+    fireEvent.pointerDown(row, { pointerType: 'mouse', pointerId: 1, clientX: 300, clientY: 100 });
+    fireEvent.pointerMove(row, { pointerType: 'mouse', pointerId: 1, clientX: 180, clientY: 100 });
+    fireEvent.pointerUp(row, { pointerType: 'mouse', pointerId: 1, clientX: 180, clientY: 100 });
+    expect(value.dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'DELETE_NODE' }),
+    );
+  });
+});
+
+describe('BulletRow read-only (view-only shared docs)', () => {
+  it('renders the text as non-editable', () => {
+    renderRow(node('n1', [], { text: 'hello' }), {}, { readOnly: true });
+    expect(editable()).toHaveAttribute('contenteditable', 'false');
+  });
+
+  it('ignores keyboard shortcuts that would mutate the tree', () => {
+    const { value } = renderRow(node('n1', [], { text: 'hello' }), {}, { readOnly: true });
+    fireEvent.keyDown(editable(), { key: 'Enter' });
+    fireEvent.keyDown(editable(), { key: 'Tab' });
+    fireEvent.keyDown(editable(), { key: 'd', metaKey: true });
+    expect(value.dispatch).not.toHaveBeenCalled();
+  });
+
+  it('is editable when not read-only', () => {
+    renderRow(node('n1', [], { text: 'hello' }));
+    expect(editable()).toHaveAttribute('contenteditable', 'true');
+  });
+});
+
+describe('BulletRow presence (per-user attribution)', () => {
+  it('shows a badge with the name of another editor currently on this bullet', () => {
+    renderRow(node('n1', [], { text: 'hello' }), {}, {
+      otherPresences: [{ clientId: 'peer-1', displayName: 'Ada', editingId: 'n1' }],
+    });
+    expect(screen.getByText('Ada')).toBeInTheDocument();
+  });
+
+  it('shows no badge when nobody else is editing this bullet', () => {
+    renderRow(node('n1', [], { text: 'hello' }), {}, {
+      otherPresences: [{ clientId: 'peer-1', displayName: 'Ada', editingId: 'other-id' }],
+    });
+    expect(screen.queryByText('Ada')).not.toBeInTheDocument();
   });
 });
 
@@ -128,6 +408,59 @@ function setCaretAtStart(el: HTMLElement) {
   sel?.addRange(range);
 }
 
+function setCaretAtOffset(el: HTMLElement, offset: number) {
+  const textNode = el.firstChild;
+  if (!textNode) return;
+  const range = document.createRange();
+  range.setStart(textNode, offset);
+  range.collapse(true);
+  const sel = window.getSelection();
+  sel?.removeAllRanges();
+  sel?.addRange(range);
+}
+
+describe('BulletRow arrow-key navigation', () => {
+  it('ArrowUp moves focus to the previous visible bullet, preserving caret offset', () => {
+    const { value } = renderRow(node('n1', [], { text: 'hello' }), { prevVisibleId: 'prev' });
+    const el = editable();
+    setCaretAtOffset(el, 3);
+    fireEvent.keyDown(el, { key: 'ArrowUp' });
+    expect(value.dispatch).toHaveBeenCalledWith({
+      type: 'SET_FOCUSED',
+      id: 'prev',
+      caret: { offset: 3 },
+    });
+  });
+
+  it('ArrowDown moves focus to the next visible bullet, preserving caret offset', () => {
+    const { value } = renderRow(node('n1', [], { text: 'hello' }), { nextVisibleId: 'next' });
+    const el = editable();
+    setCaretAtOffset(el, 2);
+    fireEvent.keyDown(el, { key: 'ArrowDown' });
+    expect(value.dispatch).toHaveBeenCalledWith({
+      type: 'SET_FOCUSED',
+      id: 'next',
+      caret: { offset: 2 },
+    });
+  });
+
+  it('does nothing on ArrowUp when there is no previous visible bullet', () => {
+    const { value } = renderRow(node('n1'));
+    fireEvent.keyDown(editable(), { key: 'ArrowUp' });
+    expect(value.dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'SET_FOCUSED' }),
+    );
+  });
+
+  it('does nothing on ArrowDown when there is no next visible bullet', () => {
+    const { value } = renderRow(node('n1'));
+    fireEvent.keyDown(editable(), { key: 'ArrowDown' });
+    expect(value.dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'SET_FOCUSED' }),
+    );
+  });
+});
+
 describe('BulletRow backspace-to-delete', () => {
   it('deletes an empty leaf bullet when Backspace is pressed with the caret at the start', () => {
     const { value } = renderRow(node('n1', [], { text: '' }));
@@ -156,35 +489,53 @@ describe('BulletRow backspace-to-delete', () => {
       expect.objectContaining({ type: 'DELETE_NODE' }),
     );
   });
+
+  it('merges into the previous visible bullet when text remains and the caret is at the start', () => {
+    const { value } = renderRow(node('n1', [], { text: 'hello' }), { prevVisibleId: 'prev' });
+    const el = editable();
+    setCaretAtStart(el);
+    fireEvent.keyDown(el, { key: 'Backspace' });
+    expect(value.dispatch).toHaveBeenCalledWith({
+      type: 'MERGE_WITH_PREVIOUS',
+      id: 'n1',
+      targetId: 'prev',
+    });
+  });
+
+  it('does NOT merge when the caret is not at the start', () => {
+    const { value } = renderRow(node('n1', [], { text: 'hello' }), { prevVisibleId: 'prev' });
+    const el = editable();
+    placeCaretAtEndHelper(el);
+    fireEvent.keyDown(el, { key: 'Backspace' });
+    expect(value.dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'MERGE_WITH_PREVIOUS' }),
+    );
+  });
+
+  it('does NOT merge when there is no previous visible bullet', () => {
+    const { value } = renderRow(node('n1', [], { text: 'hello' }));
+    const el = editable();
+    setCaretAtStart(el);
+    fireEvent.keyDown(el, { key: 'Backspace' });
+    expect(value.dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'MERGE_WITH_PREVIOUS' }),
+    );
+  });
 });
 
+function placeCaretAtEndHelper(el: HTMLElement) {
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  range.collapse(false);
+  const sel = window.getSelection();
+  sel?.removeAllRanges();
+  sel?.addRange(range);
+}
+
 describe('BulletRow delete button', () => {
-  it('deletes immediately when the bullet has no children', () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
-    const { value } = renderRow(node('n1'));
-    fireEvent.click(screen.getByRole('button', { name: 'Delete this bullet' }));
-    expect(confirmSpy).not.toHaveBeenCalled();
-    expect(value.dispatch).toHaveBeenCalledWith({ type: 'DELETE_NODE', id: 'n1' });
-    confirmSpy.mockRestore();
-  });
-
-  it('asks for confirmation before deleting a bullet with children, and respects cancel', () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
-    const { value } = renderRow(node('parent', [node('c')]));
-    fireEvent.click(screen.getByRole('button', { name: 'Delete this bullet' }));
-    expect(confirmSpy).toHaveBeenCalled();
-    expect(value.dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'DELETE_NODE' }),
-    );
-    confirmSpy.mockRestore();
-  });
-
-  it('deletes a bullet with children once confirmed', () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
-    const { value } = renderRow(node('parent', [node('c')]));
-    fireEvent.click(screen.getByRole('button', { name: 'Delete this bullet' }));
-    expect(value.dispatch).toHaveBeenCalledWith({ type: 'DELETE_NODE', id: 'parent' });
-    confirmSpy.mockRestore();
+  it('does not render an inline delete/trash button', () => {
+    renderRow(node('n1'));
+    expect(screen.queryByRole('button', { name: 'Delete this bullet' })).not.toBeInTheDocument();
   });
 });
 

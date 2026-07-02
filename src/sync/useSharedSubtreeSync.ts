@@ -131,8 +131,10 @@ export function useSharedSubtreeSync({ tree, enabled, onRemoteAction }: UseShare
   const channelsRef = useRef<Map<string, ChannelBundle>>(new Map());
   const treeRef = useRef(tree);
   const onRemoteActionRef = useRef(onRemoteAction);
-  treeRef.current = tree;
-  onRemoteActionRef.current = onRemoteAction;
+  useEffect(() => {
+    treeRef.current = tree;
+    onRemoteActionRef.current = onRemoteAction;
+  });
 
   const sharedRoots = useMemo(() => collectSharedRoots(tree), [tree]);
   const sharedRootsKey = useMemo(

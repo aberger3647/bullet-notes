@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BulletNode, PersistedState, Settings } from '../state/types';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { fetchUserDocument, persistUserDocument } from './userDocumentApi';
+import { readOfflineDocumentCache, writeOfflineDocumentCache } from '../lib/offlineDocumentCache';
 import { SAVE_DEBOUNCE_MS, type SyncConnectionStatus } from './syncTypes';
 
 type UseUserDocumentSyncOptions = {
@@ -34,25 +35,43 @@ export function useUserDocumentSync({
   const settingsRef = useRef(settings);
   const onHydrateRef = useRef(onHydrate);
   const onFirstVisitRef = useRef(onFirstVisit);
-  treeRef.current = tree;
-  zoomPathRef.current = zoomPath;
-  settingsRef.current = settings;
-  onHydrateRef.current = onHydrate;
-  onFirstVisitRef.current = onFirstVisit;
+  useEffect(() => {
+    treeRef.current = tree;
+    zoomPathRef.current = zoomPath;
+    settingsRef.current = settings;
+    onHydrateRef.current = onHydrate;
+    onFirstVisitRef.current = onFirstVisit;
+  });
+
+  // Reset to 'loading' synchronously during render (not in an effect) when `enabled`
+  // changes — avoids an extra render where status/hydrated would briefly be stale.
+  const [prevEnabled, setPrevEnabled] = useState(enabled);
+  if (enabled !== prevEnabled) {
+    setPrevEnabled(enabled);
+    if (enabled && isSupabaseConfigured()) {
+      setStatus('loading');
+      setHydrated(false);
+    }
+  }
 
   const flushSave = useCallback(() => {
     if (!enabled || !isSupabaseConfigured()) return;
-    void persistUserDocument({
+    const payload: PersistedState = {
       tree: treeRef.current,
       zoomPath: zoomPathRef.current,
       settings: settingsRef.current,
-    }).catch(() => {
-      setStatus('error');
-    });
+    };
+    void persistUserDocument(payload)
+      .then(() => writeOfflineDocumentCache(payload))
+      .catch(() => {
+        setStatus(typeof navigator !== 'undefined' && !navigator.onLine ? 'offline' : 'error');
+      });
   }, [enabled]);
 
   const flushSaveRef = useRef(flushSave);
-  flushSaveRef.current = flushSave;
+  useEffect(() => {
+    flushSaveRef.current = flushSave;
+  });
 
   const scheduleSave = useCallback(() => {
     if (!enabled || !hydrated) return;
@@ -67,8 +86,6 @@ export function useUserDocumentSync({
     if (!enabled || !isSupabaseConfigured()) return;
 
     let cancelled = false;
-    setStatus('loading');
-    setHydrated(false);
 
     void (async () => {
       try {
@@ -92,15 +109,25 @@ export function useUserDocumentSync({
           return;
         }
 
-        onHydrateRef.current({
+        const payload: PersistedState = {
           tree: doc!.tree,
           zoomPath: doc!.zoom_path ?? [],
           settings: doc!.settings ?? { hideCompleted: false, theme: 'light' },
-        });
+        };
+        onHydrateRef.current(payload);
+        writeOfflineDocumentCache(payload);
         setHydrated(true);
         setStatus('connected');
       } catch {
-        if (!cancelled) setStatus('error');
+        if (cancelled) return;
+        const cached = readOfflineDocumentCache();
+        if (cached) {
+          onHydrateRef.current(cached);
+          setHydrated(true);
+          setStatus('offline');
+        } else {
+          setStatus('error');
+        }
       }
     })();
 

@@ -7,7 +7,7 @@ import App from './App';
 vi.mock('./components/RequireAuth', () => ({
   RequireAuth: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
-vi.mock('./context/AuthProvider', () => ({
+vi.mock('./hooks/useAuth', () => ({
   useAuth: () => ({ user: { email: 'me@example.com' }, signOut: vi.fn() }),
 }));
 
@@ -35,6 +35,14 @@ describe('App (integration)', () => {
     renderApp();
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('opens settings and focuses search on Cmd/Ctrl+K from anywhere', () => {
+    renderApp();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('searchbox')).toHaveFocus();
   });
 
   it('zooms via a bullet marker and returns Home through the breadcrumb', () => {

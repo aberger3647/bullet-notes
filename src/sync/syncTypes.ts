@@ -6,7 +6,7 @@ export type BroadcastMessage = {
   ts: number;
 };
 
-export type SyncConnectionStatus = 'idle' | 'loading' | 'connected' | 'reconnecting' | 'error';
+export type SyncConnectionStatus = 'idle' | 'loading' | 'connected' | 'reconnecting' | 'offline' | 'error';
 
 const SYNCABLE_TYPES = new Set<AppAction['type']>([
   'SET_TEXT',
@@ -18,6 +18,9 @@ const SYNCABLE_TYPES = new Set<AppAction['type']>([
   'TOGGLE_COMPLETE',
   'MOVE_NODE',
   'DELETE_NODE',
+  'MERGE_WITH_PREVIOUS',
+  'DUPLICATE_NODE',
+  'PASTE_SUBTREE',
 ]);
 
 export function isSyncableAction(action: AppAction): boolean {

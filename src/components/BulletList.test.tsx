@@ -46,4 +46,51 @@ describe('BulletList', () => {
     });
     expect(screen.getByText('No bullets to show here.')).toBeInTheDocument();
   });
+
+  it('ArrowDown moves editing focus to the next visible bullet', () => {
+    renderWithProvider(<BulletList />, {
+      seed: seed([node('a', [], { text: 'first' }), node('b', [], { text: 'second' })]),
+    });
+    const [first, second] = screen.getAllByRole('textbox', { name: 'Bullet text' });
+    first!.focus();
+    fireEvent.keyDown(first!, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(second);
+  });
+
+  it('ArrowUp/ArrowDown traverse into expanded children, not just siblings', () => {
+    renderWithProvider(<BulletList />, {
+      seed: seed([node('p', [node('c', [], { text: 'child' })], { text: 'parent' }), node('z', [], { text: 'last' })]),
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Expand sub-bullets' }));
+    const [parent, child, last] = screen.getAllByRole('textbox', { name: 'Bullet text' });
+
+    parent!.focus();
+    fireEvent.keyDown(parent!, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(child);
+
+    fireEvent.keyDown(child!, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(last);
+
+    fireEvent.keyDown(last!, { key: 'ArrowUp' });
+    expect(document.activeElement).toBe(child);
+  });
+
+  it('Backspace at the start of a non-empty bullet merges it into the previous visible bullet', () => {
+    renderWithProvider(<BulletList />, {
+      seed: seed([node('a', [], { text: 'foo' }), node('b', [], { text: 'bar' })]),
+    });
+    const [, second] = screen.getAllByRole('textbox', { name: 'Bullet text' });
+    const range = document.createRange();
+    range.selectNodeContents(second!);
+    range.collapse(true);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+
+    fireEvent.keyDown(second!, { key: 'Backspace' });
+
+    const remaining = screen.getAllByRole('textbox', { name: 'Bullet text' });
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0]!.textContent).toBe('foobar');
+  });
 });

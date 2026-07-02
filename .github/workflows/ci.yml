@@ -20,8 +20,25 @@ jobs:
         run: npm run typecheck:test
       - name: Test
         run: npm test
-      # Lint currently has pre-existing failures in src/sync and src/context (unrelated
-      # to the test suite). Kept non-blocking so its signal is visible without red CI.
       - name: Lint
         run: npm run lint
-        continue-on-error: true
+
+  e2e:
+    runs-on: ubuntu-latest
+    env:
+      # Fake but well-formed values — every Supabase network call is intercepted
+      # by Playwright route mocks (see e2e/support/mockSupabase.ts), so no real
+      # backend is ever contacted. These just need to make isSupabaseConfigured()
+      # true and give the mocks a stable, known auth-storage key to seed.
+      VITE_SUPABASE_URL: https://e2e-fake.supabase.co
+      VITE_SUPABASE_ANON_KEY: e2e-fake-anon-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - name: E2E
+        run: npm run e2e

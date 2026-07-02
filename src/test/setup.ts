@@ -14,7 +14,13 @@ vi.mock('../lib/supabase', () => ({
 }));
 
 vi.mock('../sync/useDocumentSync', () => ({
-  useDocumentSync: () => ({ status: 'connected', otherEditors: 0, broadcastAction: () => {} }),
+  useDocumentSync: () => ({
+    status: 'connected',
+    otherEditors: 0,
+    otherPresences: [],
+    permission: 'edit',
+    broadcastAction: () => {},
+  }),
   createSharedDocument: async () => 'test-token',
 }));
 
@@ -27,9 +33,12 @@ vi.mock('../sync/useSharedSubtreeSync', () => ({
 }));
 
 // React Testing Library: unmount rendered trees between tests (we use globals: false,
-// so RTL's automatic cleanup isn't wired up — do it explicitly).
+// so RTL's automatic cleanup isn't wired up — do it explicitly). Also reset localStorage,
+// since AppStateProvider persists expand/collapse + undo history there and jsdom's
+// localStorage otherwise leaks state across test files within the same worker.
 afterEach(() => {
   cleanup();
+  localStorage.clear();
 });
 
 // --- jsdom gaps that the app code touches ---
@@ -79,15 +88,6 @@ if (!navigator.clipboard) {
     writable: true,
     configurable: true,
     value: { writeText: async () => {}, readText: async () => '' },
-  });
-}
-
-// document.execCommand — used by BulletRow paste handling. Not implemented in jsdom.
-if (!document.execCommand) {
-  Object.defineProperty(document, 'execCommand', {
-    writable: true,
-    configurable: true,
-    value: () => false,
   });
 }
 

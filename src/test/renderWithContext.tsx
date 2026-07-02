@@ -34,6 +34,8 @@ export function makeContextValue(
     shareToken: undefined,
     syncStatus: 'connected',
     otherEditors: 0,
+    otherPresences: [],
+    readOnly: false,
     shareNode: vi.fn().mockResolvedValue(undefined),
     shareNodeFromGesture: vi.fn().mockResolvedValue(undefined),
     getPendingShareToken: vi.fn().mockReturnValue(undefined),

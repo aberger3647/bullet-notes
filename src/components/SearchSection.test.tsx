@@ -38,4 +38,34 @@ describe('SearchSection', () => {
     renderWithContext(<SearchSection />, { state: makeState(tree()) });
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
+
+  it('shows clickable tag chips for tags used in the document, and filters results on click', async () => {
+    renderWithContext(<SearchSection />, {
+      state: makeState([
+        node('p', [node('c1', [], { text: 'buy milk #groceries' }), node('c2', [], { text: 'buy eggs #groceries' })], {
+          text: 'groceries',
+        }),
+        node('e', [], { text: 'call mom #family' }),
+      ]),
+    });
+    expect(screen.getByRole('button', { name: '#family' })).toBeInTheDocument();
+    const groceriesTag = screen.getByRole('button', { name: '#groceries' });
+    await userEvent.click(groceriesTag);
+    expect(screen.getByRole('searchbox')).toHaveValue('#groceries');
+    expect(screen.getAllByRole('option')).toHaveLength(2);
+  });
+
+  it('shows no tag chips when the document has no tags', () => {
+    renderWithContext(<SearchSection />, { state: makeState(tree()) });
+    expect(screen.queryByRole('button', { name: /^#/ })).not.toBeInTheDocument();
+  });
+
+  it('focuses the search input when focusToken changes (e.g. opened via Cmd+K)', () => {
+    const { rerender } = renderWithContext(<SearchSection focusToken={0} />, {
+      state: makeState(tree()),
+    });
+    expect(screen.getByRole('searchbox')).not.toHaveFocus();
+    rerender(<SearchSection focusToken={1} />);
+    expect(screen.getByRole('searchbox')).toHaveFocus();
+  });
 });

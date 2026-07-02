@@ -12,11 +12,24 @@ import { SortableContext, verticalListSortingStrategy, sortableKeyboardCoordinat
 import { useMemo, useRef } from 'react';
 import { useAppState } from '../hooks/useAppState';
 import type { BulletNode } from '../state/types';
-import { findNodeById } from '../state/treeOps';
+import { findNodeById, getVisibleOrder } from '../state/treeOps';
 import { BulletRow } from './BulletRow';
 
 function filterVisible(nodes: BulletNode[], hideCompleted: boolean): BulletNode[] {
   return hideCompleted ? nodes.filter((n) => !n.completed) : nodes;
+}
+
+type NavMap = Map<string, { prevId?: string; nextId?: string }>;
+
+function buildNavMap(order: string[]): NavMap {
+  const map: NavMap = new Map();
+  order.forEach((id, i) => {
+    map.set(id, {
+      prevId: i > 0 ? order[i - 1] : undefined,
+      nextId: i < order.length - 1 ? order[i + 1] : undefined,
+    });
+  });
+  return map;
 }
 
 type OutlineRowsProps = {
@@ -24,9 +37,10 @@ type OutlineRowsProps = {
   expanded: Set<string>;
   onToggleExpand: (id: string) => void;
   onEnsureExpanded: (id: string) => void;
+  nav: NavMap;
 };
 
-function OutlineRows({ nodes, expanded, onToggleExpand, onEnsureExpanded }: OutlineRowsProps) {
+function OutlineRows({ nodes, expanded, onToggleExpand, onEnsureExpanded, nav }: OutlineRowsProps) {
   const { state } = useAppState();
   const hideCompleted = state.settings.hideCompleted;
   const visible = useMemo(
@@ -45,6 +59,7 @@ function OutlineRows({ nodes, expanded, onToggleExpand, onEnsureExpanded }: Outl
           const hasChildren = node.children.length > 0;
           const regionId = hasChildren ? `outline-children-${node.id}` : undefined;
           const indentParentId = idx > 0 ? visible[idx - 1]!.id : undefined;
+          const navEntry = nav.get(node.id);
           return (
             <div key={node.id} className="outline-item">
               <BulletRow
@@ -54,6 +69,8 @@ function OutlineRows({ nodes, expanded, onToggleExpand, onEnsureExpanded }: Outl
                 indentParentId={indentParentId}
                 onEnsureExpanded={onEnsureExpanded}
                 childRegionId={regionId}
+                prevVisibleId={navEntry?.prevId}
+                nextVisibleId={navEntry?.nextId}
               />
               {hasChildren ? (
                 <div id={regionId} className="outline-children" hidden={!isOpen}>
@@ -63,6 +80,7 @@ function OutlineRows({ nodes, expanded, onToggleExpand, onEnsureExpanded }: Outl
                       expanded={expanded}
                       onToggleExpand={onToggleExpand}
                       onEnsureExpanded={onEnsureExpanded}
+                      nav={nav}
                     />
                   ) : null}
                 </div>
@@ -121,6 +139,11 @@ export function BulletList() {
     hoverExpand.current = { overId, timer };
   };
 
+  const nav = useMemo(
+    () => buildNavMap(getVisibleOrder(visibleChildren, expanded, state.settings.hideCompleted)),
+    [visibleChildren, expanded, state.settings.hideCompleted],
+  );
+
   if (visibleChildren.length === 0) {
     return <p className="empty-hint">No bullets to show here.</p>;
   }
@@ -144,6 +167,7 @@ export function BulletList() {
           expanded={expanded}
           onToggleExpand={toggleExpand}
           onEnsureExpanded={ensureExpanded}
+          nav={nav}
         />
       </div>
     </DndContext>

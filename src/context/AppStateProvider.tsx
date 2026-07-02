@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import { appReducer, initialAppState } from '../state/reducer';
-import type { AppAction, AppState, BulletNode, PersistedState } from '../state/types';
+import type { AppAction, AppState, BulletNode, HistoryState, PersistedState } from '../state/types';
 import {
   getChildrenForZoom,
   sanitizeZoomPath,
@@ -22,10 +22,61 @@ import { openShareSheet, shareUrl, type ShareResult } from '../lib/shareNode';
 import { createSharedDocument, useDocumentSync } from '../sync/useDocumentSync';
 import { useSharedSubtreeSync } from '../sync/useSharedSubtreeSync';
 import { useUserDocumentSync } from '../sync/useUserDocumentSync';
+import { takeSnapshot } from '../sync/snapshotApi';
+import { shouldSnapshotToday, todayKey } from '../lib/snapshotSchedule';
 import type { SyncConnectionStatus } from '../sync/syncTypes';
+import { useAuth } from '../hooks/useAuth';
 import { AppStateContext, type AppMode } from './appStateContext';
 
 const STORAGE_KEY = 'bullet-notes:v1';
+const EXPANDED_STORAGE_KEY = 'bullet-notes:v1:expanded';
+const HISTORY_STORAGE_KEY = 'bullet-notes:v1:history';
+const LAST_SNAPSHOT_STORAGE_KEY = 'bullet-notes:v1:lastSnapshotDate';
+
+function expandedStorageKey(mode: AppMode, shareToken?: string): string {
+  return mode === 'shared' && shareToken
+    ? `${EXPANDED_STORAGE_KEY}:shared:${shareToken}`
+    : EXPANDED_STORAGE_KEY;
+}
+
+function readExpandedFromStorage(key: string): Set<string> {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return new Set();
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? new Set(parsed.filter((x): x is string => typeof x === 'string')) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function writeExpandedToStorage(key: string, expanded: Set<string>) {
+  try {
+    localStorage.setItem(key, JSON.stringify([...expanded]));
+  } catch {
+    /* ignore quota/availability errors */
+  }
+}
+
+function readHistoryFromStorage(): HistoryState | null {
+  try {
+    const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as HistoryState;
+    if (!parsed || !Array.isArray(parsed.past) || !Array.isArray(parsed.future)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeHistoryToStorage(history: HistoryState) {
+  try {
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
+  } catch {
+    /* ignore quota/availability errors */
+  }
+}
 
 function getVisibleForView(state: AppState) {
   const raw = getChildrenForZoom(state.tree, state.zoomPath);
@@ -56,8 +107,12 @@ type Props = {
 };
 
 export function AppStateProvider({ children, mode, shareToken }: Props) {
+  const { user } = useAuth();
+  const displayName = user?.user_metadata?.full_name || user?.email || 'Someone';
   const [state, dispatch] = useReducer(appReducer, initialAppState);
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(() =>
+    readExpandedFromStorage(expandedStorageKey(mode, shareToken)),
+  );
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [editingBulletId, setEditingBulletId] = useState<string | null>(null);
   const [editingIndentParentId, setEditingIndentParentId] = useState<string | undefined>(undefined);
@@ -69,8 +124,10 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
   const subtreeBroadcastRef = useRef<(action: AppAction) => void>(() => {});
   const settingsRef = useRef(state.settings);
   const treeRef = useRef(state.tree);
-  settingsRef.current = state.settings;
-  treeRef.current = state.tree;
+  useEffect(() => {
+    settingsRef.current = state.settings;
+    treeRef.current = state.tree;
+  });
 
   const onHydrateShared = useCallback((tree: BulletNode[]) => {
     dispatch({
@@ -118,13 +175,22 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
   const isShared = mode === 'shared' && Boolean(shareToken);
   const isLocal = mode === 'local';
 
-  const { status: sharedSyncStatus, otherEditors, broadcastAction } = useDocumentSync({
+  const {
+    status: sharedSyncStatus,
+    otherEditors,
+    otherPresences,
+    permission: sharedPermission,
+    broadcastAction,
+  } = useDocumentSync({
     shareToken: shareToken ?? '',
     tree: state.tree,
     enabled: isShared && isSupabaseConfigured(),
+    displayName,
+    editingId: editingBulletId,
     onRemoteAction,
     onHydrate: onHydrateShared,
   });
+  const readOnly = isShared && sharedPermission === 'view';
 
   const { status: userSyncStatus } = useUserDocumentSync({
     tree: state.tree,
@@ -141,12 +207,65 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
     onRemoteAction,
   });
 
-  broadcastRef.current = broadcastAction;
-  subtreeBroadcastRef.current = broadcastSubtreeAction;
+  useEffect(() => {
+    broadcastRef.current = broadcastAction;
+    subtreeBroadcastRef.current = broadcastSubtreeAction;
+  });
 
   useEffect(() => {
     document.documentElement.dataset.theme = state.settings.theme;
   }, [state.settings.theme]);
+
+  useEffect(() => {
+    writeExpandedToStorage(expandedStorageKey(mode, shareToken), expanded);
+  }, [expanded, mode, shareToken]);
+
+  const historyRestoredRef = useRef(false);
+  useEffect(() => {
+    if (!isLocal || historyRestoredRef.current) return;
+    if (state.tree === initialAppState.tree) return; // not hydrated yet
+    historyRestoredRef.current = true;
+    const saved = readHistoryFromStorage();
+    if (saved && (saved.past.length > 0 || saved.future.length > 0)) {
+      dispatch({ type: 'RESTORE_HISTORY', history: saved });
+    }
+  }, [isLocal, state.tree]);
+
+  useEffect(() => {
+    if (!isLocal || !historyRestoredRef.current) return;
+    writeHistoryToStorage(state.history);
+  }, [isLocal, state.history]);
+
+  // Daily version-history snapshot: at most once per calendar day, once the
+  // primary document has loaded, ask the server to snapshot it (for "restore
+  // yesterday"-style recovery). Best-effort — failures are silently ignored.
+  useEffect(() => {
+    if (!isLocal || userSyncStatus !== 'connected' || !isSupabaseConfigured()) return;
+    let cancelled = false;
+    const now = new Date();
+    let lastKey: string | null = null;
+    try {
+      lastKey = localStorage.getItem(LAST_SNAPSHOT_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+    if (!shouldSnapshotToday(lastKey, now)) return;
+    void takeSnapshot()
+      .then(() => {
+        if (cancelled) return;
+        try {
+          localStorage.setItem(LAST_SNAPSHOT_STORAGE_KEY, todayKey(now));
+        } catch {
+          /* ignore */
+        }
+      })
+      .catch(() => {
+        /* best-effort; try again next time status reconnects */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isLocal, userSyncStatus]);
 
   const wrappedDispatch = useCallback<Dispatch<AppAction>>(
     (action) => {
@@ -359,6 +478,8 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
       shareToken,
       syncStatus: resolvedSyncStatus,
       otherEditors,
+      otherPresences,
+      readOnly,
       shareNode,
       shareNodeFromGesture,
       getPendingShareToken,
@@ -383,6 +504,8 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
       shareToken,
       resolvedSyncStatus,
       otherEditors,
+      otherPresences,
+      readOnly,
       shareNode,
       shareNodeFromGesture,
       getPendingShareToken,

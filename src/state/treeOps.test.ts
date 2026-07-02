@@ -31,6 +31,16 @@ import {
   extractSharedSubtree,
   setNodeShareToken,
   getActionNodeIds,
+  duplicateSubtree,
+  getVisibleOrder,
+  mergeNodeIntoPrevious,
+  serializeOutlineClipboardText,
+  serializeOutlineClipboardJSON,
+  parseOutlineClipboardJSON,
+  OUTLINE_CLIPBOARD_MIME,
+  extractTags,
+  collectAllTags,
+  deriveDocTitle,
 } from './treeOps';
 
 /** Collect all ids in DFS order — handy for structural assertions. */
@@ -431,6 +441,178 @@ describe('share helpers', () => {
   });
 });
 
+describe('duplicateSubtree', () => {
+  it('deep-copies content but assigns a fresh id at every level', () => {
+    const original = node('a', [node('b', [node('c')])], { text: 'root', completed: true });
+    const dup = duplicateSubtree(original, () => 'new-id');
+    expect(dup.id).not.toBe('a');
+    expect(dup.text).toBe('root');
+    expect(dup.completed).toBe(true);
+    expect(dup.children[0]!.id).not.toBe('b');
+    expect(dup.children[0]!.children[0]!.id).not.toBe('c');
+  });
+
+  it('drops any shareToken on the duplicate (it is not the shared node)', () => {
+    const original = node('a', [], { shareToken: 'tok' });
+    const dup = duplicateSubtree(original, () => 'new-id');
+    expect(dup.shareToken).toBeUndefined();
+  });
+
+  it('uses the id generator for every node in the subtree, in DFS order', () => {
+    const original = node('a', [node('b'), node('c')]);
+    const ids = ['id-a', 'id-b', 'id-c'];
+    let i = 0;
+    const dup = duplicateSubtree(original, () => ids[i++]!);
+    expect(dup.id).toBe('id-a');
+    expect(dup.children[0]!.id).toBe('id-b');
+    expect(dup.children[1]!.id).toBe('id-c');
+  });
+});
+
+describe('getVisibleOrder', () => {
+  it('lists top-level nodes in order when nothing is expanded', () => {
+    const tree = [node('a', [node('a1')]), node('b')];
+    expect(getVisibleOrder(tree, new Set(), false)).toEqual(['a', 'b']);
+  });
+
+  it('inlines children of expanded nodes, depth-first', () => {
+    const tree = [node('a', [node('a1'), node('a2')]), node('b')];
+    expect(getVisibleOrder(tree, new Set(['a']), false)).toEqual(['a', 'a1', 'a2', 'b']);
+  });
+
+  it('does not descend into a collapsed node even if it has children', () => {
+    const tree = [node('a', [node('a1', [node('a1a')])]), node('b')];
+    expect(getVisibleOrder(tree, new Set(['a']), false)).toEqual(['a', 'a1', 'b']);
+    expect(getVisibleOrder(tree, new Set(['a', 'a1']), false)).toEqual(['a', 'a1', 'a1a', 'b']);
+  });
+
+  it('skips completed nodes (and their subtrees) when hideCompleted is set', () => {
+    const tree = [node('a', [node('a1')], { completed: true }), node('b')];
+    expect(getVisibleOrder(tree, new Set(['a']), true)).toEqual(['b']);
+  });
+});
+
+describe('mergeNodeIntoPrevious', () => {
+  it('appends the text onto the target and removes the merged node', () => {
+    const tree = [node('a', [], { text: 'foo' }), node('b', [], { text: 'bar' })];
+    const next = mergeNodeIntoPrevious(tree, 'b', 'a');
+    expect(next.map((n) => n.id)).toEqual(['a']);
+    expect(next[0]!.text).toBe('foobar');
+  });
+
+  it("splices the merged node's children into its own old slot (not under the target)", () => {
+    const tree = [node('a', [], { text: 'foo' }), node('b', [node('b1')], { text: 'bar' })];
+    const next = mergeNodeIntoPrevious(tree, 'b', 'a');
+    expect(next.map((n) => n.id)).toEqual(['a', 'b1']);
+    expect(next[0]!.text).toBe('foobar');
+    expect(next[0]!.children).toEqual([]);
+  });
+
+  it('merging into the parent (first child, no previous sibling) preserves sibling order', () => {
+    const tree = [node('p', [node('a', [], { text: 'A' }), node('c', [], { text: 'C' })], { text: 'P' })];
+    const next = mergeNodeIntoPrevious(tree, 'a', 'p');
+    expect(next[0]!.text).toBe('PA');
+    expect(next[0]!.children.map((n) => n.id)).toEqual(['c']);
+  });
+
+  it("splices a merged first child's own children in before its remaining siblings", () => {
+    const tree = [
+      node('p', [node('a', [node('a1')], { text: 'A' }), node('c', [], { text: 'C' })], { text: 'P' }),
+    ];
+    const next = mergeNodeIntoPrevious(tree, 'a', 'p');
+    expect(next[0]!.children.map((n) => n.id)).toEqual(['a1', 'c']);
+  });
+
+  it('returns the same reference when the merged node or target is missing', () => {
+    const tree = [node('a')];
+    expect(mergeNodeIntoPrevious(tree, 'nope', 'a')).toBe(tree);
+    expect(mergeNodeIntoPrevious(tree, 'a', 'nope')).toBe(tree);
+  });
+
+  it('is a no-op when id === targetId', () => {
+    const tree = [node('a')];
+    expect(mergeNodeIntoPrevious(tree, 'a', 'a')).toBe(tree);
+  });
+});
+
+describe('outline clipboard serialization', () => {
+  it('serializes a subtree to a readable tab-indented outline for pasting into other apps', () => {
+    const tree = node('a', [node('b'), node('c', [node('d')])], { text: 'root' });
+    expect(serializeOutlineClipboardText(tree)).toBe('root\n\tb\n\tc\n\t\td');
+  });
+
+  it('flattens embedded newlines in the readable outline (one line per bullet)', () => {
+    const tree = node('a', [], { text: 'line1\nline2' });
+    expect(serializeOutlineClipboardText(tree)).toBe('line1 line2');
+  });
+
+  it('round-trips a subtree through JSON serialize/parse', () => {
+    const tree = node('a', [node('b', [], { text: 'child' })], { text: 'root' });
+    const json = serializeOutlineClipboardJSON(tree);
+    const parsed = parseOutlineClipboardJSON(json);
+    expect(parsed).toEqual(tree);
+  });
+
+  it('returns null for malformed or non-outline JSON', () => {
+    expect(parseOutlineClipboardJSON('not json')).toBeNull();
+    expect(parseOutlineClipboardJSON('{"foo":"bar"}')).toBeNull();
+    expect(parseOutlineClipboardJSON('42')).toBeNull();
+  });
+
+  it('exposes the custom clipboard mime type used to detect our own paste payloads', () => {
+    expect(OUTLINE_CLIPBOARD_MIME).toBe('application/x-bullet-notes-outline');
+  });
+});
+
+describe('extractTags', () => {
+  it('extracts #tag tokens (lowercased, deduped)', () => {
+    expect(extractTags('buy milk #groceries #Urgent #groceries')).toEqual(['groceries', 'urgent']);
+  });
+
+  it('ignores a bare "#" or markdown-heading-style "# text"', () => {
+    expect(extractTags('# Heading')).toEqual([]);
+    expect(extractTags('just a # by itself')).toEqual([]);
+  });
+
+  it('allows hyphens and underscores in tag names', () => {
+    expect(extractTags('#work-in_progress')).toEqual(['work-in_progress']);
+  });
+
+  it('returns [] for text with no tags', () => {
+    expect(extractTags('nothing here')).toEqual([]);
+  });
+});
+
+describe('collectAllTags', () => {
+  it('collects and sorts unique tags across the whole tree', () => {
+    const tree = [
+      node('a', [node('b', [], { text: 'child #beta' })], { text: 'root #alpha' }),
+      node('c', [], { text: 'second #alpha #gamma' }),
+    ];
+    expect(collectAllTags(tree)).toEqual(['alpha', 'beta', 'gamma']);
+  });
+
+  it('returns [] when no bullet has a tag', () => {
+    expect(collectAllTags([node('a', [], { text: 'plain' })])).toEqual([]);
+  });
+});
+
+describe('deriveDocTitle', () => {
+  it("uses the first top-level bullet's text, truncated", () => {
+    expect(deriveDocTitle([node('a', [], { text: 'My groceries list' })])).toBe('My groceries list');
+  });
+
+  it('falls back to "Untitled" for an empty or blank first bullet', () => {
+    expect(deriveDocTitle([node('a', [], { text: '' })])).toBe('Untitled');
+    expect(deriveDocTitle([])).toBe('Untitled');
+  });
+
+  it('truncates long titles', () => {
+    const long = 'x'.repeat(80);
+    expect(deriveDocTitle([node('a', [], { text: long })])).toBe(`${'x'.repeat(56)}…`);
+  });
+});
+
 describe('searchBullets', () => {
   const tree = () => [
     node('p', [node('c1', [], { text: 'buy milk' }), node('c2', [], { text: 'buy eggs' })], {
@@ -468,6 +650,11 @@ describe('getActionNodeIds', () => {
     [{ type: 'APPEND_CHILD', parentId: 'x', newId: 'n' }, ['x', 'n']],
     [{ type: 'APPEND_CHILD', parentId: 'x' }, ['x']],
     [{ type: 'MOVE_NODE', activeId: 'a', overId: 'o', nest: false }, ['a', 'o']],
+    [{ type: 'MERGE_WITH_PREVIOUS', id: 'x', targetId: 'y' }, ['x', 'y']],
+    [{ type: 'DUPLICATE_NODE', id: 'x', newId: 'n' }, ['x', 'n']],
+    [{ type: 'DUPLICATE_NODE', id: 'x' }, ['x']],
+    [{ type: 'PASTE_SUBTREE', afterId: 'x', subtree: node('p'), newId: 'n' }, ['x', 'n']],
+    [{ type: 'PASTE_SUBTREE', afterId: 'x', subtree: node('p') }, ['x']],
     [{ type: 'ZOOM_BACK' }, []],
     [{ type: 'UNDO' }, []],
   ];

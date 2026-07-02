@@ -13,10 +13,14 @@ import {
 
 export { createSharedDocument } from './documentApi';
 
+export type PresenceInfo = { clientId: string; displayName: string; editingId: string | null };
+
 type UseDocumentSyncOptions = {
   shareToken: string;
   tree: BulletNode[];
   enabled: boolean;
+  displayName: string;
+  editingId: string | null;
   onRemoteAction: (action: AppAction) => void;
   onHydrate: (tree: BulletNode[]) => void;
 };
@@ -25,6 +29,8 @@ export function useDocumentSync({
   shareToken,
   tree,
   enabled,
+  displayName,
+  editingId,
   onRemoteAction,
   onHydrate,
 }: UseDocumentSyncOptions) {
@@ -32,6 +38,27 @@ export function useDocumentSync({
   const [status, setStatus] = useState<SyncConnectionStatus>(enabled ? 'loading' : 'idle');
   const [hydrated, setHydrated] = useState(false);
   const [otherEditors, setOtherEditors] = useState(0);
+  const [otherPresences, setOtherPresences] = useState<PresenceInfo[]>([]);
+  const [permission, setPermission] = useState<'edit' | 'view'>('edit');
+  const displayNameRef = useRef(displayName);
+  const editingIdRef = useRef(editingId);
+  useEffect(() => {
+    displayNameRef.current = displayName;
+    editingIdRef.current = editingId;
+  });
+
+  // Reset to 'loading' synchronously during render (not in an effect) when the fetch
+  // inputs change, per React's "adjusting state on prop change" pattern — avoids an
+  // extra render where status/hydrated would briefly be stale.
+  const fetchKey = `${enabled}:${shareToken}`;
+  const [prevFetchKey, setPrevFetchKey] = useState(fetchKey);
+  if (fetchKey !== prevFetchKey) {
+    setPrevFetchKey(fetchKey);
+    if (enabled && shareToken && isSupabaseConfigured()) {
+      setStatus('loading');
+      setHydrated(false);
+    }
+  }
   const channelRef = useRef<RealtimeChannel | null>(null);
   const subscribedRef = useRef(false);
   const textTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -41,10 +68,12 @@ export function useDocumentSync({
   const shareTokenRef = useRef(shareToken);
   const onRemoteActionRef = useRef(onRemoteAction);
   const onHydrateRef = useRef(onHydrate);
-  treeRef.current = tree;
-  shareTokenRef.current = shareToken;
-  onRemoteActionRef.current = onRemoteAction;
-  onHydrateRef.current = onHydrate;
+  useEffect(() => {
+    treeRef.current = tree;
+    shareTokenRef.current = shareToken;
+    onRemoteActionRef.current = onRemoteAction;
+    onHydrateRef.current = onHydrate;
+  });
 
   const broadcastNow = useCallback(async (action: AppAction) => {
     const channel = channelRef.current;
@@ -105,8 +134,10 @@ export function useDocumentSync({
 
   const flushPendingTextRef = useRef(flushPendingText);
   const flushSaveRef = useRef(flushSave);
-  flushPendingTextRef.current = flushPendingText;
-  flushSaveRef.current = flushSave;
+  useEffect(() => {
+    flushPendingTextRef.current = flushPendingText;
+    flushSaveRef.current = flushSave;
+  });
 
   const scheduleSave = useCallback(() => {
     if (!enabled || !subscribedRef.current) return;
@@ -121,8 +152,6 @@ export function useDocumentSync({
     if (!enabled || !shareToken || !isSupabaseConfigured()) return;
 
     let cancelled = false;
-    setStatus('loading');
-    setHydrated(false);
 
     void (async () => {
       try {
@@ -133,6 +162,7 @@ export function useDocumentSync({
           return;
         }
         onHydrateRef.current(doc.tree);
+        setPermission(doc.permission ?? 'edit');
         setHydrated(true);
       } catch {
         if (!cancelled) setStatus('error');
@@ -150,6 +180,8 @@ export function useDocumentSync({
     let cancelled = false;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let channel: RealtimeChannel | null = null;
+    const textTimers = textTimersRef.current;
+    const pendingText = pendingTextRef.current;
 
     const teardownChannel = async () => {
       subscribedRef.current = false;
@@ -181,16 +213,22 @@ export function useDocumentSync({
           })
           .on('presence', { event: 'sync' }, () => {
             if (!channel) return;
-            const presenceState = channel.presenceState();
-            const count = Object.values(presenceState).reduce((sum, arr) => sum + arr.length, 0);
-            setOtherEditors(Math.max(0, count - 1));
+            const presenceState = channel.presenceState<PresenceInfo>();
+            const all = Object.values(presenceState).flat();
+            const others = all.filter((p) => p.clientId !== clientIdRef.current);
+            setOtherEditors(others.length);
+            setOtherPresences(others);
           })
           .subscribe((subscribeStatus) => {
             if (subscribeStatus === 'SUBSCRIBED') {
               subscribedRef.current = true;
               channelRef.current = channel;
               setStatus('connected');
-              void channel!.track({ clientId: clientIdRef.current });
+              void channel!.track({
+                clientId: clientIdRef.current,
+                displayName: displayNameRef.current,
+                editingId: editingIdRef.current,
+              } satisfies PresenceInfo);
             } else if (subscribeStatus === 'CHANNEL_ERROR' || subscribeStatus === 'TIMED_OUT') {
               subscribedRef.current = false;
               setStatus('reconnecting');
@@ -220,9 +258,9 @@ export function useDocumentSync({
       cancelled = true;
       window.removeEventListener('beforeunload', onBeforeUnload);
       if (reconnectTimer) clearTimeout(reconnectTimer);
-      for (const timer of textTimersRef.current.values()) clearTimeout(timer);
-      textTimersRef.current.clear();
-      pendingTextRef.current.clear();
+      for (const timer of textTimers.values()) clearTimeout(timer);
+      textTimers.clear();
+      pendingText.clear();
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       void teardownChannel();
     };
@@ -233,5 +271,18 @@ export function useDocumentSync({
     scheduleSave();
   }, [enabled, scheduleSave, status, tree]);
 
-  return { status, otherEditors, broadcastAction, flushSave };
+  // Re-broadcast presence (display name + which bullet is being edited) whenever
+  // either changes, so peers see up-to-date attribution without a full reconnect.
+  useEffect(() => {
+    if (!enabled || status !== 'connected' || !subscribedRef.current) return;
+    const channel = channelRef.current;
+    if (!channel) return;
+    void channel.track({
+      clientId: clientIdRef.current,
+      displayName,
+      editingId,
+    } satisfies PresenceInfo);
+  }, [enabled, status, displayName, editingId]);
+
+  return { status, otherEditors, otherPresences, permission, broadcastAction, flushSave };
 }

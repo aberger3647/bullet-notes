@@ -30,3 +30,9 @@ supabase/.temp/
 
 # Test coverage output
 coverage
+
+# Playwright
+test-results
+playwright-report
+blob-report
+playwright/.cache

@@ -1,0 +1,17 @@
+{
+  "name": "Bullet Notes",
+  "short_name": "Bullet Notes",
+  "description": "A fast, keyboard-first outliner.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#f8fafc",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

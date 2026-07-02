@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAuth } from '../context/AuthProvider';
+import { useAuth } from '../hooks/useAuth';
 
 function GoogleIcon() {
   return (

@@ -3,6 +3,16 @@ import { CSS } from '@dnd-kit/utilities';
 import { useEffect, useRef, useState } from 'react';
 import { useAppState } from '../hooks/useAppState';
 import type { BulletNode } from '../state/types';
+import {
+  OUTLINE_CLIPBOARD_MIME,
+  parseOutlineClipboardJSON,
+  serializeOutlineClipboardJSON,
+  serializeOutlineClipboardText,
+} from '../state/treeOps';
+import { colorForClientId } from '../lib/presenceColor';
+
+const SWIPE_REVEAL_MAX = -88;
+const SWIPE_DELETE_THRESHOLD = -72;
 
 export type BulletRowProps = {
   node: BulletNode;
@@ -13,6 +23,9 @@ export type BulletRowProps = {
   onEnsureExpanded?: (id: string) => void;
   /** DOM id of the inline children region (sibling under outline item), for aria-controls */
   childRegionId?: string;
+  /** Id of the previous/next bullet in on-screen order, for ArrowUp/ArrowDown navigation. */
+  prevVisibleId?: string;
+  nextVisibleId?: string;
 };
 
 function UsersIcon() {
@@ -54,15 +67,57 @@ function isCaretAtStart(el: HTMLElement): boolean {
   return preRange.toString().length === 0;
 }
 
-function TrashIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-.6 13.2A2 2 0 0 1 16.4 21H7.6a2 2 0 0 1-2-1.8L5 6" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M10 11v6" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M14 11v6" />
-    </svg>
-  );
+function getCaretOffset(el: HTMLElement): number {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return 0;
+  const range = sel.getRangeAt(0);
+  if (!el.contains(range.startContainer)) return 0;
+  const preRange = range.cloneRange();
+  preRange.selectNodeContents(el);
+  preRange.setEnd(range.startContainer, range.startOffset);
+  return preRange.toString().length;
+}
+
+function placeCaretAtOffset(el: HTMLElement, offset: number) {
+  const textNode = el.firstChild;
+  const range = document.createRange();
+  if (!textNode) {
+    range.selectNodeContents(el);
+  } else {
+    const len = textNode.textContent?.length ?? 0;
+    range.setStart(textNode, Math.max(0, Math.min(offset, len)));
+    range.collapse(true);
+  }
+  const sel = window.getSelection();
+  sel?.removeAllRanges();
+  sel?.addRange(range);
+}
+
+/** Insert `text` at the caret via the Range API (execCommand is deprecated/unreliable in tests). */
+function insertTextAtCaret(el: HTMLElement, text: string) {
+  const sel = window.getSelection();
+  const range = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+  if (range && el.contains(range.commonAncestorContainer)) {
+    range.deleteContents();
+    const textNode = document.createTextNode(text);
+    range.insertNode(textNode);
+    range.setStartAfter(textNode);
+    range.collapse(true);
+    sel!.removeAllRanges();
+    sel!.addRange(range);
+  } else {
+    el.textContent = (el.textContent ?? '') + text;
+    placeCaretAtEnd(el);
+  }
+  el.normalize();
+}
+
+/** Whether the caret offset falls on the first/last `\n`-delimited line of `text`. */
+function caretLineInfo(text: string, offset: number): { onFirstLine: boolean; onLastLine: boolean } {
+  return {
+    onFirstLine: !text.slice(0, offset).includes('\n'),
+    onLastLine: !text.slice(offset).includes('\n'),
+  };
 }
 
 export function BulletRow({
@@ -72,10 +127,18 @@ export function BulletRow({
   indentParentId,
   onEnsureExpanded,
   childRegionId,
+  prevVisibleId,
+  nextVisibleId,
 }: BulletRowProps) {
-  const { state, dispatch, shareNode, setEditingBullet, scheduleClearEditingBullet } = useAppState();
+  const { state, dispatch, shareNode, setEditingBullet, scheduleClearEditingBullet, readOnly, otherPresences } =
+    useAppState();
+  const editors = otherPresences.filter((p) => p.editingId === node.id);
   const editRef = useRef<HTMLDivElement>(null);
   const [shareBusy, setShareBusy] = useState(false);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const swipeRef = useRef<{ pointerId: number; startX: number; startY: number; tracking: boolean } | null>(
+    null,
+  );
 
   const {
     attributes,
@@ -100,6 +163,7 @@ export function BulletRow({
       if (el) {
         el.focus();
         if (state.focusCaret === 'end') placeCaretAtEnd(el);
+        else if (typeof state.focusCaret === 'object') placeCaretAtOffset(el, state.focusCaret.offset);
         else selectAllContents(el);
       }
       dispatch({ type: 'SET_FOCUSED', id: null });
@@ -112,10 +176,49 @@ export function BulletRow({
     opacity: isDragging ? 0.55 : 1,
   };
 
+  const commitText = (el: HTMLDivElement) => {
+    const raw = el.textContent ?? '';
+    const text = raw.replace(/\u00a0/g, ' ');
+    if (raw !== text) {
+      el.textContent = text;
+      selectAllContents(el);
+    }
+    dispatch({ type: 'SET_TEXT', id: node.id, text });
+  };
+
+  const deleteThisBullet = () => {
+    if (node.children.length > 0) {
+      const label = node.text.trim() || 'this bullet';
+      if (!window.confirm(`Delete "${label}" and all of its sub-bullets?`)) return;
+    }
+    dispatch({ type: 'DELETE_NODE', id: node.id });
+  };
+
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (readOnly) return;
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
       dispatch({ type: 'TOGGLE_COMPLETE', id: node.id });
+      return;
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd') {
+      e.preventDefault();
+      dispatch({ type: 'DUPLICATE_NODE', id: node.id, newId: crypto.randomUUID() });
+      return;
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Backspace') {
+      e.preventDefault();
+      deleteThisBullet();
+      return;
+    }
+    if ((e.key === 'Enter' || e.code === 'NumpadEnter') && e.shiftKey) {
+      if (e.nativeEvent.isComposing) return;
+      e.preventDefault();
+      const el = editRef.current;
+      if (el) {
+        insertTextAtCaret(el, '\n');
+        commitText(el);
+      }
       return;
     }
     if ((e.key === 'Enter' || e.code === 'NumpadEnter') && !e.shiftKey) {
@@ -133,38 +236,97 @@ export function BulletRow({
       }
       return;
     }
-    if (e.key === 'Backspace' && node.text === '' && node.children.length === 0) {
+    if (e.key === 'Backspace') {
       const el = editRef.current;
       if (el && isCaretAtStart(el)) {
-        e.preventDefault();
-        dispatch({ type: 'DELETE_NODE', id: node.id });
+        if (node.text === '' && node.children.length === 0) {
+          e.preventDefault();
+          dispatch({ type: 'DELETE_NODE', id: node.id });
+          return;
+        }
+        if (node.text !== '' && prevVisibleId) {
+          e.preventDefault();
+          dispatch({ type: 'MERGE_WITH_PREVIOUS', id: node.id, targetId: prevVisibleId });
+          return;
+        }
       }
     }
-  };
-
-  const onDeleteClick = () => {
-    if (node.children.length > 0) {
-      const label = node.text.trim() || 'this bullet';
-      if (!window.confirm(`Delete “${label}” and all of its sub-bullets?`)) return;
+    if (
+      (e.key === 'ArrowUp' || e.key === 'ArrowDown') &&
+      !e.metaKey &&
+      !e.ctrlKey &&
+      !e.altKey
+    ) {
+      const el = editRef.current;
+      const offset = el ? getCaretOffset(el) : 0;
+      const { onFirstLine, onLastLine } = caretLineInfo(node.text, offset);
+      if (e.key === 'ArrowUp' && !onFirstLine) return;
+      if (e.key === 'ArrowDown' && !onLastLine) return;
+      const targetId = e.key === 'ArrowUp' ? prevVisibleId : nextVisibleId;
+      if (!targetId) return;
+      e.preventDefault();
+      dispatch({ type: 'SET_FOCUSED', id: targetId, caret: { offset } });
     }
-    dispatch({ type: 'DELETE_NODE', id: node.id });
   };
 
   const onInput = (e: React.FormEvent<HTMLDivElement>) => {
-    const el = e.currentTarget;
-    const raw = el.textContent ?? '';
-    const text = raw.replace(/\u00a0/g, ' ').replace(/\n/g, '');
-    if (raw !== text) {
-      el.textContent = text;
-      selectAllContents(el);
-    }
-    dispatch({ type: 'SET_TEXT', id: node.id, text });
+    if (readOnly) return;
+    commitText(e.currentTarget);
   };
 
   const onPaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
     e.preventDefault();
-    const text = e.clipboardData.getData('text/plain').replace(/\r?\n/g, ' ');
-    document.execCommand('insertText', false, text);
+    if (readOnly) return;
+    const outlineJson = e.clipboardData.getData(OUTLINE_CLIPBOARD_MIME);
+    const subtree = outlineJson ? parseOutlineClipboardJSON(outlineJson) : null;
+    if (subtree) {
+      dispatch({ type: 'PASTE_SUBTREE', afterId: node.id, subtree, newId: crypto.randomUUID() });
+      return;
+    }
+    const text = e.clipboardData.getData('text/plain').replace(/\r\n/g, '\n');
+    insertTextAtCaret(e.currentTarget, text);
+    commitText(e.currentTarget);
+  };
+
+  const onCopy = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed) return; // let default text-selection copy proceed
+    e.preventDefault();
+    e.clipboardData.setData('text/plain', serializeOutlineClipboardText(node));
+    e.clipboardData.setData(OUTLINE_CLIPBOARD_MIME, serializeOutlineClipboardJSON(node));
+  };
+
+  const onSwipePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== 'touch' || readOnly) return;
+    swipeRef.current = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, tracking: true };
+  };
+
+  const onSwipePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const swipe = swipeRef.current;
+    if (!swipe || !swipe.tracking || swipe.pointerId !== e.pointerId) return;
+    const dx = e.clientX - swipe.startX;
+    const dy = e.clientY - swipe.startY;
+    if (Math.abs(dy) > Math.abs(dx)) {
+      swipe.tracking = false;
+      setSwipeOffset(0);
+      return;
+    }
+    setSwipeOffset(Math.max(dx, SWIPE_REVEAL_MAX));
+  };
+
+  const endSwipe = (e: React.PointerEvent<HTMLDivElement>) => {
+    const swipe = swipeRef.current;
+    if (!swipe || swipe.pointerId !== e.pointerId) return;
+    const shouldDelete = swipe.tracking && swipeOffset <= SWIPE_DELETE_THRESHOLD;
+    swipeRef.current = null;
+    setSwipeOffset(0);
+    if (shouldDelete) deleteThisBullet();
+  };
+
+  const onSwipePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (swipeRef.current?.pointerId !== e.pointerId) return;
+    swipeRef.current = null;
+    setSwipeOffset(0);
   };
 
   const hasChildren = node.children.length > 0;
@@ -183,7 +345,15 @@ export function BulletRow({
       ref={setNodeRef}
       style={style}
       className={`bullet-row ${node.completed ? 'completed' : ''} ${isShared ? 'bullet-row--shared' : ''}`}
+      onPointerDown={onSwipePointerDown}
+      onPointerMove={onSwipePointerMove}
+      onPointerUp={endSwipe}
+      onPointerCancel={onSwipePointerCancel}
     >
+      <div className="bullet-row-swipe-action" aria-hidden>
+        Delete
+      </div>
+      <div className="bullet-row-content" style={{ transform: `translateX(${swipeOffset}px)` }}>
       <div className="share-slot">
         <button
           type="button"
@@ -227,11 +397,11 @@ export function BulletRow({
           dispatch({
             type: 'ZOOM_INTO',
             id: node.id,
-            ...(hasChildren ? {} : { newChildId: crypto.randomUUID() }),
+            ...(hasChildren || readOnly ? {} : { newChildId: crypto.randomUUID() }),
           })
         }
-        {...attributes}
-        {...listeners}
+        {...(readOnly ? {} : attributes)}
+        {...(readOnly ? {} : listeners)}
       >
         {hasChildren ? (
           <span className="bullet-marker-dot" aria-hidden />
@@ -243,7 +413,7 @@ export function BulletRow({
       <div
         ref={editRef}
         className="bullet-input"
-        contentEditable
+        contentEditable={!readOnly}
         suppressContentEditableWarning
         role="textbox"
         aria-multiline="false"
@@ -254,22 +424,24 @@ export function BulletRow({
         onInput={onInput}
         onKeyDown={onKeyDown}
         onPaste={onPaste}
+        onCopy={onCopy}
         onFocus={() => setEditingBullet(node.id, indentParentId)}
         onBlur={() => scheduleClearEditingBullet()}
       />
-
-      <div className="delete-slot">
-        <button
-          type="button"
-          className="delete-btn"
-          aria-label="Delete this bullet"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDeleteClick();
-          }}
-        >
-          <TrashIcon />
-        </button>
+      {editors.length > 0 ? (
+        <span className="presence-badges" aria-hidden={false}>
+          {editors.map((p) => (
+            <span
+              key={p.clientId}
+              className="presence-badge"
+              style={{ backgroundColor: colorForClientId(p.clientId) }}
+              title={`${p.displayName} is editing this bullet`}
+            >
+              {p.displayName}
+            </span>
+          ))}
+        </span>
+      ) : null}
       </div>
     </div>
   );

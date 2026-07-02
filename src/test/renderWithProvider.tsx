@@ -2,9 +2,18 @@ import type { ReactElement } from 'react';
 import { render, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AppStateProvider } from '../context/AppStateProvider';
+import { AuthContext, type AuthContextValue } from '../context/authContext';
 import { useAppState } from '../hooks/useAppState';
 import type { AppStateContextValue, AppMode } from '../context/appStateContext';
 import type { PersistedState } from '../state/types';
+
+const fakeAuthValue: AuthContextValue = {
+  session: null,
+  user: { email: 'test@example.com' } as AuthContextValue['user'],
+  loading: false,
+  signInWithGoogle: async () => {},
+  signOut: async () => {},
+};
 
 type Options = {
   mode?: AppMode;
@@ -29,10 +38,12 @@ export function renderWithProvider(ui: ReactElement, opts: Options = {}) {
 
   const utils = render(
     <MemoryRouter initialEntries={[route]}>
-      <AppStateProvider mode={mode} shareToken={shareToken}>
-        <Capture />
-        {ui}
-      </AppStateProvider>
+      <AuthContext.Provider value={fakeAuthValue}>
+        <AppStateProvider mode={mode} shareToken={shareToken}>
+          <Capture />
+          {ui}
+        </AppStateProvider>
+      </AuthContext.Provider>
     </MemoryRouter>,
   );
 

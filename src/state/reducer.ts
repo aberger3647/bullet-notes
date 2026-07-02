@@ -8,6 +8,8 @@ import {
   insertSiblingAfter,
   insertSiblingBefore,
   locateNode,
+  duplicateSubtree,
+  mergeNodeIntoPrevious,
   moveAsChild,
   moveBeforeSibling,
   outdentNode,
@@ -114,6 +116,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return applyUndo(state);
     case 'REDO':
       return applyRedo(state);
+    case 'RESTORE_HISTORY':
+      return { ...state, history: action.history };
     case 'SET_TEXT': {
       const nextTree = setNodeText(state.tree, action.id, action.text);
       if (nextTree === state.tree) return state;
@@ -129,6 +133,60 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       if (nextTree === state.tree) return state;
       const zoomPath = sanitizeZoomPath(nextTree, state.zoomPath);
       return withCommit(state, { tree: nextTree, zoomPath, focusedId: focusTarget, focusCaret: 'end' });
+    }
+    case 'MERGE_WITH_PREVIOUS': {
+      if (action.id === action.targetId) return state;
+      const targetLoc = locateNode(state.tree, action.targetId);
+      if (!targetLoc) return state;
+      if (!locateNode(state.tree, action.id)) return state;
+      const caretOffset = targetLoc.node.text.length;
+      const nextTree = mergeNodeIntoPrevious(state.tree, action.id, action.targetId);
+      if (nextTree === state.tree) return state;
+      return withCommit(state, {
+        tree: nextTree,
+        focusedId: action.targetId,
+        focusCaret: { offset: caretOffset },
+      });
+    }
+    case 'DUPLICATE_NODE': {
+      const loc = locateNode(state.tree, action.id);
+      if (!loc) return state;
+      let usedFirstId = false;
+      const dup = duplicateSubtree(loc.node, () => {
+        if (!usedFirstId) {
+          usedFirstId = true;
+          return action.newId ?? crypto.randomUUID();
+        }
+        return crypto.randomUUID();
+      });
+      const nextTree = insertSiblingAfter(state.tree, action.id, dup);
+      if (nextTree === state.tree) return state;
+      return withCommit(state, { tree: nextTree, focusedId: dup.id, focusCaret: 'end' });
+    }
+    case 'PASTE_SUBTREE': {
+      const loc = locateNode(state.tree, action.afterId);
+      if (!loc) return state;
+      let usedFirstId = false;
+      const fresh = duplicateSubtree(action.subtree, () => {
+        if (!usedFirstId) {
+          usedFirstId = true;
+          return action.newId ?? crypto.randomUUID();
+        }
+        return crypto.randomUUID();
+      });
+      const nextTree = insertSiblingAfter(state.tree, action.afterId, fresh);
+      if (nextTree === state.tree) return state;
+      return withCommit(state, { tree: nextTree, focusedId: fresh.id, focusCaret: 'end' });
+    }
+    case 'IMPORT_OUTLINE': {
+      if (action.roots.length === 0) return state;
+      const fresh = action.roots.map((r) => duplicateSubtree(r, () => crypto.randomUUID()));
+      const nextTree =
+        action.parentId === '__root__'
+          ? [...state.tree, ...fresh]
+          : fresh.reduce((tree, root) => appendChild(tree, action.parentId, root), state.tree);
+      if (nextTree === state.tree) return state;
+      return withCommit(state, { tree: nextTree });
     }
     case 'SET_NODE_SHARE': {
       const nextTree = setNodeShareToken(state.tree, action.id, action.shareToken);
