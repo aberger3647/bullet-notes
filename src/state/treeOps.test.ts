@@ -461,6 +461,7 @@ describe('getActionNodeIds', () => {
     [{ type: 'TOGGLE_COMPLETE', id: 'x' }, ['x']],
     [{ type: 'INDENT', id: 'x' }, ['x']],
     [{ type: 'OUTDENT', id: 'x' }, ['x']],
+    [{ type: 'DELETE_NODE', id: 'x' }, ['x']],
     [{ type: 'NEW_SIBLING_AFTER', afterId: 'x', newId: 'n' }, ['x', 'n']],
     [{ type: 'NEW_SIBLING_AFTER', afterId: 'x' }, ['x']],
     [{ type: 'NEW_SIBLING_BEFORE', beforeId: 'x', newId: 'n' }, ['x', 'n']],

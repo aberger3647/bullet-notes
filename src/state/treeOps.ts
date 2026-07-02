@@ -398,6 +398,7 @@ export function getActionNodeIds(action: AppAction): string[] {
     case 'TOGGLE_COMPLETE':
     case 'INDENT':
     case 'OUTDENT':
+    case 'DELETE_NODE':
       return [action.id];
     case 'NEW_SIBLING_AFTER':
       return [action.afterId, ...(action.newId ? [action.newId] : [])];

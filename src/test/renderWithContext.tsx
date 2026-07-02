@@ -12,6 +12,7 @@ export function makeState(tree: BulletNode[] = [], extra: Partial<AppState> = {}
     settings: { hideCompleted: false, theme: 'light' },
     history: { past: [], future: [] },
     focusedId: null,
+    focusCaret: 'all',
     ...extra,
   };
 }

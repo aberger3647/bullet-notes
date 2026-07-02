@@ -119,6 +119,75 @@ describe('BulletRow disclosure + share', () => {
   });
 });
 
+function setCaretAtStart(el: HTMLElement) {
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  range.collapse(true);
+  const sel = window.getSelection();
+  sel?.removeAllRanges();
+  sel?.addRange(range);
+}
+
+describe('BulletRow backspace-to-delete', () => {
+  it('deletes an empty leaf bullet when Backspace is pressed with the caret at the start', () => {
+    const { value } = renderRow(node('n1', [], { text: '' }));
+    const el = editable();
+    setCaretAtStart(el);
+    fireEvent.keyDown(el, { key: 'Backspace' });
+    expect(value.dispatch).toHaveBeenCalledWith({ type: 'DELETE_NODE', id: 'n1' });
+  });
+
+  it('does NOT delete when the bullet still has text', () => {
+    const { value } = renderRow(node('n1', [], { text: 'hello' }));
+    const el = editable();
+    setCaretAtStart(el);
+    fireEvent.keyDown(el, { key: 'Backspace' });
+    expect(value.dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'DELETE_NODE' }),
+    );
+  });
+
+  it('does NOT delete an empty bullet that still has children', () => {
+    const { value } = renderRow(node('n1', [node('c')], { text: '' }));
+    const el = editable();
+    setCaretAtStart(el);
+    fireEvent.keyDown(el, { key: 'Backspace' });
+    expect(value.dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'DELETE_NODE' }),
+    );
+  });
+});
+
+describe('BulletRow delete button', () => {
+  it('deletes immediately when the bullet has no children', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const { value } = renderRow(node('n1'));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete this bullet' }));
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(value.dispatch).toHaveBeenCalledWith({ type: 'DELETE_NODE', id: 'n1' });
+    confirmSpy.mockRestore();
+  });
+
+  it('asks for confirmation before deleting a bullet with children, and respects cancel', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const { value } = renderRow(node('parent', [node('c')]));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete this bullet' }));
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(value.dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'DELETE_NODE' }),
+    );
+    confirmSpy.mockRestore();
+  });
+
+  it('deletes a bullet with children once confirmed', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const { value } = renderRow(node('parent', [node('c')]));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete this bullet' }));
+    expect(value.dispatch).toHaveBeenCalledWith({ type: 'DELETE_NODE', id: 'parent' });
+    confirmSpy.mockRestore();
+  });
+});
+
 describe('BulletRow focus effect', () => {
   it('clears the focus request after focusing the bullet', () => {
     const { value } = renderRow(node('n1'), {}, {

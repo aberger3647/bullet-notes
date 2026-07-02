@@ -11,6 +11,7 @@ import {
   moveAsChild,
   moveBeforeSibling,
   outdentNode,
+  removeNode,
   reorderSiblings,
   sanitizeZoomPath,
   getChildrenForZoom,
@@ -28,6 +29,7 @@ export const initialAppState: AppState = {
   settings: initialSettings,
   history: { past: [], future: [] },
   focusedId: null,
+  focusCaret: 'all',
 };
 
 function capPast(past: Snapshot[]): Snapshot[] {
@@ -103,7 +105,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       };
     }
     case 'SET_FOCUSED':
-      return { ...state, focusedId: action.id };
+      return { ...state, focusedId: action.id, focusCaret: action.caret ?? 'all' };
     case 'SET_HIDE_COMPLETED':
       return { ...state, settings: { ...state.settings, hideCompleted: action.value } };
     case 'SET_THEME':
@@ -116,6 +118,17 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const nextTree = setNodeText(state.tree, action.id, action.text);
       if (nextTree === state.tree) return state;
       return { ...state, tree: nextTree };
+    }
+    case 'DELETE_NODE': {
+      const loc = locateNode(state.tree, action.id);
+      if (!loc) return state;
+      // Keep at least one bullet in the document.
+      if (!loc.parent && loc.siblings.length === 1) return state;
+      const focusTarget = loc.index > 0 ? loc.siblings[loc.index - 1]!.id : loc.parent?.id ?? null;
+      const nextTree = removeNode(state.tree, action.id);
+      if (nextTree === state.tree) return state;
+      const zoomPath = sanitizeZoomPath(nextTree, state.zoomPath);
+      return withCommit(state, { tree: nextTree, zoomPath, focusedId: focusTarget, focusCaret: 'end' });
     }
     case 'SET_NODE_SHARE': {
       const nextTree = setNodeShareToken(state.tree, action.id, action.shareToken);
@@ -133,7 +146,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         : createNode({ text: '' });
       const nextTree = insertSiblingAfter(state.tree, action.afterId, fresh);
       if (nextTree === state.tree) return state;
-      return withCommit(state, { tree: nextTree, focusedId: fresh.id });
+      return withCommit(state, { tree: nextTree, focusedId: fresh.id, focusCaret: 'all' });
     }
     case 'NEW_SIBLING_BEFORE': {
       const fresh = action.newId
@@ -141,7 +154,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         : createNode({ text: '' });
       const nextTree = insertSiblingBefore(state.tree, action.beforeId, fresh);
       if (nextTree === state.tree) return state;
-      return withCommit(state, { tree: nextTree, focusedId: fresh.id });
+      return withCommit(state, { tree: nextTree, focusedId: fresh.id, focusCaret: 'all' });
     }
     case 'APPEND_CHILD': {
       const fresh = action.newId
@@ -152,19 +165,19 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           ? [...state.tree, fresh]
           : appendChild(state.tree, action.parentId, fresh);
       if (nextTree === state.tree) return state;
-      return withCommit(state, { tree: nextTree, focusedId: fresh.id });
+      return withCommit(state, { tree: nextTree, focusedId: fresh.id, focusCaret: 'all' });
     }
     case 'INDENT': {
       const nextTree = indentNode(state.tree, action.id);
       if (nextTree === state.tree) return state;
-      return withCommit(state, { tree: nextTree, focusedId: action.id });
+      return withCommit(state, { tree: nextTree, focusedId: action.id, focusCaret: 'all' });
     }
     case 'OUTDENT': {
       const nextTree = outdentNode(state.tree, action.id);
       if (nextTree === state.tree) return state;
       const stillVisible = getChildrenForZoom(nextTree, state.zoomPath).some((n) => n.id === action.id);
       const zoomPath = stillVisible ? state.zoomPath : getZoomPathToNode(nextTree, action.id);
-      return withCommit(state, { tree: nextTree, focusedId: action.id, zoomPath });
+      return withCommit(state, { tree: nextTree, focusedId: action.id, focusCaret: 'all', zoomPath });
     }
     case 'ZOOM_INTO': {
       const loc = locateNode(state.tree, action.id);
@@ -175,7 +188,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           ? createNode({ id: action.newChildId, text: '' })
           : createNode({ text: '' });
         const nextTree = appendChild(state.tree, action.id, first);
-        return withCommit(state, { tree: nextTree, zoomPath: nextPath, focusedId: first.id });
+        return withCommit(state, { tree: nextTree, zoomPath: nextPath, focusedId: first.id, focusCaret: 'all' });
       }
       return withCommit(state, { zoomPath: nextPath, focusedId: null });
     }
@@ -197,7 +210,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'NAVIGATE_TO_BULLET': {
       if (!findNodeById(state.tree, action.id)) return state;
       const zoomPath = getZoomPathToNode(state.tree, action.id);
-      return withCommit(state, { zoomPath, focusedId: action.id });
+      return withCommit(state, { zoomPath, focusedId: action.id, focusCaret: 'all' });
     }
     case 'MOVE_NODE': {
       const { activeId, overId, nest } = action;

@@ -17,6 +17,7 @@ const SYNCABLE_TYPES = new Set<AppAction['type']>([
   'OUTDENT',
   'TOGGLE_COMPLETE',
   'MOVE_NODE',
+  'DELETE_NODE',
 ]);
 
 export function isSyncableAction(action: AppAction): boolean {

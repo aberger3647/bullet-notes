@@ -52,6 +52,17 @@ function UsersIcon() {
   );
 }
 
+function TrashIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-.6 13.2A2 2 0 0 1 16.4 21H7.6a2 2 0 0 1-2-1.8L5 6" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10 11v6" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14 11v6" />
+    </svg>
+  );
+}
+
 export function MobileEditToolbar() {
   const {
     state,
@@ -94,6 +105,14 @@ export function MobileEditToolbar() {
 
   const onComplete = () => {
     dispatch({ type: 'TOGGLE_COMPLETE', id: editingBulletId });
+  };
+
+  const onDelete = () => {
+    if (node.children.length > 0) {
+      const label = node.text.trim() || 'this bullet';
+      if (!window.confirm(`Delete “${label}” and all of its sub-bullets?`)) return;
+    }
+    dispatch({ type: 'DELETE_NODE', id: editingBulletId });
   };
 
   const onShare = () => {
@@ -164,6 +183,15 @@ export function MobileEditToolbar() {
         onPointerDown={onSharePointerDown}
       >
         <UsersIcon />
+      </button>
+
+      <button
+        type="button"
+        className="mobile-edit-toolbar-btn mobile-edit-toolbar-btn--danger"
+        aria-label="Delete bullet"
+        onPointerDown={(e) => toolbarPointerAction(e, keepEditingBullet, onDelete)}
+      >
+        <TrashIcon />
       </button>
     </div>
   );

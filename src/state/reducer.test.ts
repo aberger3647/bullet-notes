@@ -12,6 +12,7 @@ function stateWith(tree: BulletNode[], extra: Partial<AppState> = {}): AppState 
     settings: { hideCompleted: false, theme: 'light' },
     history: { past: [], future: [] },
     focusedId: null,
+    focusCaret: 'all',
     ...extra,
   };
 }
@@ -123,6 +124,47 @@ describe('OUTDENT', () => {
   it('is a no-op for a root-level node', () => {
     const s = stateWith([node('a'), node('b')]);
     expect(appReducer(s, { type: 'OUTDENT', id: 'a' })).toBe(s);
+  });
+});
+
+describe('DELETE_NODE', () => {
+  it('removes a leaf node and focuses the previous sibling, commits', () => {
+    const s = stateWith([node('a'), node('b')]);
+    const next = appReducer(s, { type: 'DELETE_NODE', id: 'b' });
+    expect(next.tree.map((n) => n.id)).toEqual(['a']);
+    expect(next.focusedId).toBe('a');
+    // Focus lands at the end of the merged-into bullet, not a destructive select-all.
+    expect(next.focusCaret).toBe('end');
+    expect(next.history.past).toHaveLength(1);
+  });
+
+  it('focuses the parent when deleting a first child', () => {
+    const s = stateWith([node('a', [node('a1'), node('a2')])]);
+    const next = appReducer(s, { type: 'DELETE_NODE', id: 'a1' });
+    expect(next.tree[0]!.children.map((n) => n.id)).toEqual(['a2']);
+    expect(next.focusedId).toBe('a');
+  });
+
+  it('removes an entire subtree', () => {
+    const s = stateWith(threeLevel());
+    const next = appReducer(s, { type: 'DELETE_NODE', id: 'b' });
+    expect(ids(next.tree)).toEqual(['a']);
+  });
+
+  it('is a no-op when deleting the only remaining top-level node', () => {
+    const s = stateWith([node('a')]);
+    expect(appReducer(s, { type: 'DELETE_NODE', id: 'a' })).toBe(s);
+  });
+
+  it('returns the same state for a missing node', () => {
+    const s = stateWith([node('a'), node('b')]);
+    expect(appReducer(s, { type: 'DELETE_NODE', id: 'nope' })).toBe(s);
+  });
+
+  it('recomputes zoomPath when the deleted node was on the current zoom path', () => {
+    const s = stateWith(threeLevel(), { zoomPath: ['a', 'b'] });
+    const next = appReducer(s, { type: 'DELETE_NODE', id: 'b' });
+    expect(next.zoomPath).toEqual(['a']);
   });
 });
 

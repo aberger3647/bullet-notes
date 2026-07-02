@@ -21,12 +21,15 @@ export type HistoryState = {
   future: Snapshot[];
 };
 
+export type FocusCaret = 'all' | 'end';
+
 export type AppState = {
   tree: BulletNode[];
   zoomPath: string[];
   settings: Settings;
   history: HistoryState;
   focusedId: string | null;
+  focusCaret: FocusCaret;
 };
 
 export type PersistedState = {
@@ -44,8 +47,9 @@ export type AppAction =
   | { type: 'OUTDENT'; id: string }
   | { type: 'TOGGLE_COMPLETE'; id: string }
   | { type: 'SET_TEXT'; id: string; text: string }
+  | { type: 'DELETE_NODE'; id: string }
   | { type: 'SET_NODE_SHARE'; id: string; shareToken: string }
-  | { type: 'SET_FOCUSED'; id: string | null }
+  | { type: 'SET_FOCUSED'; id: string | null; caret?: FocusCaret }
   | { type: 'ZOOM_INTO'; id: string; newChildId?: string }
   | { type: 'ZOOM_BACK' }
   | { type: 'ZOOM_TO_LEVEL'; level: number }

@@ -34,6 +34,37 @@ function selectAllContents(el: HTMLElement) {
   sel?.addRange(range);
 }
 
+function placeCaretAtEnd(el: HTMLElement) {
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  range.collapse(false);
+  const sel = window.getSelection();
+  sel?.removeAllRanges();
+  sel?.addRange(range);
+}
+
+function isCaretAtStart(el: HTMLElement): boolean {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || !sel.isCollapsed) return false;
+  const range = sel.getRangeAt(0);
+  if (!el.contains(range.startContainer)) return false;
+  const preRange = range.cloneRange();
+  preRange.selectNodeContents(el);
+  preRange.setEnd(range.startContainer, range.startOffset);
+  return preRange.toString().length === 0;
+}
+
+function TrashIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-.6 13.2A2 2 0 0 1 16.4 21H7.6a2 2 0 0 1-2-1.8L5 6" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10 11v6" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14 11v6" />
+    </svg>
+  );
+}
+
 export function BulletRow({
   node,
   expanded,
@@ -68,11 +99,12 @@ export function BulletRow({
       const el = editRef.current;
       if (el) {
         el.focus();
-        selectAllContents(el);
+        if (state.focusCaret === 'end') placeCaretAtEnd(el);
+        else selectAllContents(el);
       }
       dispatch({ type: 'SET_FOCUSED', id: null });
     }
-  }, [state.focusedId, node.id, dispatch]);
+  }, [state.focusedId, state.focusCaret, node.id, dispatch]);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -99,7 +131,23 @@ export function BulletRow({
         dispatch({ type: 'INDENT', id: node.id });
         if (indentParentId && onEnsureExpanded) onEnsureExpanded(indentParentId);
       }
+      return;
     }
+    if (e.key === 'Backspace' && node.text === '' && node.children.length === 0) {
+      const el = editRef.current;
+      if (el && isCaretAtStart(el)) {
+        e.preventDefault();
+        dispatch({ type: 'DELETE_NODE', id: node.id });
+      }
+    }
+  };
+
+  const onDeleteClick = () => {
+    if (node.children.length > 0) {
+      const label = node.text.trim() || 'this bullet';
+      if (!window.confirm(`Delete “${label}” and all of its sub-bullets?`)) return;
+    }
+    dispatch({ type: 'DELETE_NODE', id: node.id });
   };
 
   const onInput = (e: React.FormEvent<HTMLDivElement>) => {
@@ -209,6 +257,20 @@ export function BulletRow({
         onFocus={() => setEditingBullet(node.id, indentParentId)}
         onBlur={() => scheduleClearEditingBullet()}
       />
+
+      <div className="delete-slot">
+        <button
+          type="button"
+          className="delete-btn"
+          aria-label="Delete this bullet"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDeleteClick();
+          }}
+        >
+          <TrashIcon />
+        </button>
+      </div>
     </div>
   );
 }
