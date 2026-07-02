@@ -310,6 +310,43 @@ export function toggleComplete(roots: BulletNode[], id: string): BulletNode[] {
   return replaceSiblings(roots, loc.siblings, siblings);
 }
 
+/** Sets `completed` on every id that currently differs (no-op for ids already at that state or missing). */
+export function setNodesCompleted(roots: BulletNode[], ids: string[], completed: boolean): BulletNode[] {
+  let next = roots;
+  for (const id of ids) {
+    const loc = locateNode(next, id);
+    if (!loc || loc.node.completed === completed) continue;
+    const updated = { ...loc.node, completed };
+    const siblings = [...loc.siblings];
+    siblings[loc.index] = updated;
+    next = replaceSiblings(next, loc.siblings, siblings);
+  }
+  return next;
+}
+
+/**
+ * Indents every id (expects top-to-bottom visible order). Indenting forward
+ * lets later ids in the same original sibling run nest under the item just
+ * indented before them, keeping the group's relative order intact.
+ */
+export function indentNodes(roots: BulletNode[], ids: string[]): BulletNode[] {
+  let next = roots;
+  for (const id of ids) next = indentNode(next, id);
+  return next;
+}
+
+/**
+ * Outdents every id (expects top-to-bottom visible order, iterates it in
+ * reverse). `outdentNode` always inserts right after the shared parent, so
+ * processing last-to-first is what keeps the group's relative order intact
+ * instead of reversing it.
+ */
+export function outdentNodes(roots: BulletNode[], ids: string[]): BulletNode[] {
+  let next = roots;
+  for (let i = ids.length - 1; i >= 0; i--) next = outdentNode(next, ids[i]!);
+  return next;
+}
+
 /**
  * Merge `id`'s text onto the end of `targetId`'s text and remove `id`.
  * `id`'s own children take its old slot among its former siblings (they do not
@@ -530,6 +567,10 @@ export function getActionNodeIds(action: AppAction): string[] {
     case 'OUTDENT':
     case 'DELETE_NODE':
       return [action.id];
+    case 'BULK_TOGGLE_COMPLETE':
+    case 'BULK_INDENT':
+    case 'BULK_OUTDENT':
+      return action.ids;
     case 'MERGE_WITH_PREVIOUS':
       return [action.id, action.targetId];
     case 'DUPLICATE_NODE':

@@ -31,6 +31,12 @@ export type AppStateContextValue = {
   setEditingBullet: (id: string, indentParentId?: string) => void;
   scheduleClearEditingBullet: () => void;
   keepEditingBullet: () => void;
+  selectedIds: Set<string>;
+  selectRange: (id: string) => void;
+  clearSelection: () => void;
+  bulkIndent: () => void;
+  bulkOutdent: () => void;
+  bulkToggleComplete: () => void;
 };
 
 export const AppStateContext = createContext<AppStateContextValue | null>(null);

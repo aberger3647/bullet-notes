@@ -114,6 +114,10 @@
   touch-action: pan-y;
 }
 
+.bullet-row--selected .bullet-row-content {
+  background: color-mix(in oklch, var(--color-blue-500) 10%, var(--background));
+}
+
 .bullet-row:hover .disclosure,
 .bullet-row:focus-within .disclosure {
   opacity: 1;

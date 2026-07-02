@@ -15,10 +15,8 @@ vi.mock('../hooks/useAuth', () => ({
 }));
 
 const updateProfileNameMock = vi.fn().mockResolvedValue(undefined);
-const deleteMyDataMock = vi.fn().mockResolvedValue(undefined);
 vi.mock('../sync/accountApi', () => ({
   updateProfileName: (...args: unknown[]) => updateProfileNameMock(...args),
-  deleteMyData: (...args: unknown[]) => deleteMyDataMock(...args),
 }));
 
 const downloadFileMock = vi.fn();
@@ -75,7 +73,6 @@ describe('SettingsPanel', () => {
     useMySharesListMock.mockClear();
     signOutMock.mockClear();
     updateProfileNameMock.mockClear();
-    deleteMyDataMock.mockClear();
   });
 
   it('renders nothing when closed', () => {
@@ -214,86 +211,6 @@ describe('SettingsPanel', () => {
     fireEvent.change(nameInput, { target: { value: 'Grace Hopper' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save name' }));
     await waitFor(() => expect(updateProfileNameMock).toHaveBeenCalledWith('Grace Hopper'));
-  });
-
-  it('deletes all account data after typing the confirmation phrase', async () => {
-    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('DELETE');
-    renderWithContext(<SettingsPanel open onClose={() => {}} />, { state: makeState([node('a')]) });
-    fireEvent.click(screen.getByRole('button', { name: 'Delete my data' }));
-    await waitFor(() => expect(deleteMyDataMock).toHaveBeenCalled());
-    await waitFor(() => expect(signOutMock).toHaveBeenCalled());
-    promptSpy.mockRestore();
-  });
-
-  it('does not delete data when the confirmation phrase does not match', () => {
-    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('nope');
-    renderWithContext(<SettingsPanel open onClose={() => {}} />, { state: makeState([node('a')]) });
-    fireEvent.click(screen.getByRole('button', { name: 'Delete my data' }));
-    expect(deleteMyDataMock).not.toHaveBeenCalled();
-    promptSpy.mockRestore();
-  });
-
-  it('creates and zooms into a new "today" note when none exists yet', () => {
-    const { value } = renderWithContext(<SettingsPanel open onClose={() => {}} />, {
-      state: makeState([node('a')]),
-    });
-    fireEvent.click(screen.getByRole('button', { name: "Go to today's note" }));
-    expect(value.dispatch).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'APPEND_CHILD', parentId: '__root__' }),
-    );
-    expect(value.dispatch).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'SET_TEXT', text: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) }),
-    );
-    expect(value.dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: 'ZOOM_INTO' }));
-  });
-
-  it('navigates to an existing "today" note instead of creating a duplicate', () => {
-    const today = new Date().toISOString().slice(0, 10);
-    const { value } = renderWithContext(<SettingsPanel open onClose={() => {}} />, {
-      state: makeState([node('existing', [], { text: today })]),
-    });
-    fireEvent.click(screen.getByRole('button', { name: "Go to today's note" }));
-    expect(value.dispatch).toHaveBeenCalledWith({ type: 'NAVIGATE_TO_BULLET', id: 'existing' });
-    expect(value.dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'APPEND_CHILD' }),
-    );
-  });
-
-  it('saves the zoomed-in bullet as a template and lists it', async () => {
-    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Weekly review');
-    renderWithContext(<SettingsPanel open onClose={() => {}} />, {
-      state: makeState([node('a', [node('b')], { text: 'root' })], { zoomPath: ['a'] }),
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Save current page as template' }));
-    expect(await screen.findByText('Weekly review')).toBeInTheDocument();
-    promptSpy.mockRestore();
-  });
-
-  it('inserts a saved template into the document', async () => {
-    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Weekly review');
-    const { value } = renderWithContext(<SettingsPanel open onClose={() => {}} />, {
-      state: makeState([node('a', [], { text: 'root' })], { zoomPath: ['a'] }),
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Save current page as template' }));
-    await screen.findByText('Weekly review');
-    fireEvent.click(screen.getByRole('button', { name: 'Insert' }));
-    expect(value.dispatch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'IMPORT_OUTLINE',
-        roots: expect.arrayContaining([expect.objectContaining({ text: 'root' })]),
-      }),
-    );
-    promptSpy.mockRestore();
-  });
-
-  it('shows a "My documents" link in local mode', () => {
-    renderWithContext(<SettingsPanel open onClose={() => {}} />, { mode: 'local' });
-    expect(screen.getByRole('button', { name: 'My documents' })).toBeInTheDocument();
-  });
-
-  it('hides the "My documents" link in shared mode', () => {
-    renderWithContext(<SettingsPanel open onClose={() => {}} />, { mode: 'shared' });
-    expect(screen.queryByRole('button', { name: 'My documents' })).not.toBeInTheDocument();
   });
 
   it('exports the tree as Markdown', () => {

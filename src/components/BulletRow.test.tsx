@@ -177,41 +177,23 @@ function fakeClipboardData(initial: Record<string, string> = {}) {
 
 describe('BulletRow Cmd/Ctrl+Backspace (explicit delete)', () => {
   it('deletes immediately when the bullet has no children', () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const { value } = renderRow(node('n1', [], { text: 'hello' }));
     fireEvent.keyDown(editable(), { key: 'Backspace', metaKey: true });
-    expect(confirmSpy).not.toHaveBeenCalled();
     expect(value.dispatch).toHaveBeenCalledWith({ type: 'DELETE_NODE', id: 'n1' });
-    confirmSpy.mockRestore();
   });
 
-  it('asks for confirmation before deleting a bullet with children, and respects cancel', () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
-    const { value } = renderRow(node('parent', [node('c')]));
-    fireEvent.keyDown(editable(), { key: 'Backspace', ctrlKey: true });
-    expect(confirmSpy).toHaveBeenCalled();
-    expect(value.dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'DELETE_NODE' }),
-    );
-    confirmSpy.mockRestore();
-  });
-
-  it('deletes a bullet with children once confirmed', () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+  it('deletes a bullet with children immediately, without confirmation (relies on undo)', () => {
     const { value } = renderRow(node('parent', [node('c')]));
     fireEvent.keyDown(editable(), { key: 'Backspace', metaKey: true });
     expect(value.dispatch).toHaveBeenCalledWith({ type: 'DELETE_NODE', id: 'parent' });
-    confirmSpy.mockRestore();
   });
 
   it('works regardless of caret position (not just at the start)', () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const { value } = renderRow(node('n1', [], { text: 'hello' }));
     const el = editable();
     placeCaretAtEndHelper(el);
     fireEvent.keyDown(el, { key: 'Backspace', metaKey: true });
     expect(value.dispatch).toHaveBeenCalledWith({ type: 'DELETE_NODE', id: 'n1' });
-    confirmSpy.mockRestore();
   });
 });
 
@@ -284,25 +266,17 @@ function swipeLeft(el: HTMLElement, distance: number) {
 
 describe('BulletRow swipe-to-delete (mobile)', () => {
   it('deletes a leaf bullet on a full left swipe past the threshold', () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const { value, container } = renderRow(node('n1', [], { text: 'hello' }));
     const row = container.querySelector('.bullet-row') as HTMLElement;
     swipeLeft(row, 100);
-    expect(confirmSpy).not.toHaveBeenCalled();
     expect(value.dispatch).toHaveBeenCalledWith({ type: 'DELETE_NODE', id: 'n1' });
-    confirmSpy.mockRestore();
   });
 
-  it('confirms before deleting a bullet with children via swipe', () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+  it('deletes a bullet with children via swipe, without confirmation', () => {
     const { value, container } = renderRow(node('parent', [node('c')]));
     const row = container.querySelector('.bullet-row') as HTMLElement;
     swipeLeft(row, 100);
-    expect(confirmSpy).toHaveBeenCalled();
-    expect(value.dispatch).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'DELETE_NODE' }),
-    );
-    confirmSpy.mockRestore();
+    expect(value.dispatch).toHaveBeenCalledWith({ type: 'DELETE_NODE', id: 'parent' });
   });
 
   it('does NOT delete on a short swipe that does not cross the threshold', () => {
@@ -396,6 +370,40 @@ describe('BulletRow disclosure + share', () => {
     renderRow(node('n1'), {}, { shareNode });
     fireEvent.click(screen.getByRole('button', { name: 'Share this bullet' }));
     expect(shareNode).toHaveBeenCalledWith('n1');
+  });
+});
+
+describe('BulletRow marker click / shift-click', () => {
+  const marker = () => screen.getByRole('button', { name: 'Open sub-bullets in page view' });
+
+  it('plain click zooms into the bullet', () => {
+    const { value } = renderRow(node('n1'));
+    fireEvent.click(marker());
+    expect(value.dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'ZOOM_INTO', id: 'n1' }),
+    );
+  });
+
+  it('shift+click selects a range instead of zooming', () => {
+    const selectRange = vi.fn();
+    const { value } = renderRow(node('n1'), {}, { selectRange });
+    fireEvent.click(marker(), { shiftKey: true });
+    expect(selectRange).toHaveBeenCalledWith('n1');
+    expect(value.dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'ZOOM_INTO' }),
+    );
+  });
+
+  it('shift+click is ignored in read-only mode (falls through to zoom, which is itself a no-op there)', () => {
+    const selectRange = vi.fn();
+    renderRow(node('n1'), {}, { selectRange, readOnly: true });
+    fireEvent.click(marker(), { shiftKey: true });
+    expect(selectRange).not.toHaveBeenCalled();
+  });
+
+  it('renders a light-blue selection highlight on the row when selected', () => {
+    const { container } = renderRow(node('n1'), {}, { selectedIds: new Set(['n1']) });
+    expect(container.querySelector('.bullet-row--selected')).not.toBeNull();
   });
 });
 

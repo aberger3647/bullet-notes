@@ -21,6 +21,9 @@ import {
   setNodeText,
   setNodeShareToken,
   toggleComplete,
+  setNodesCompleted,
+  indentNodes,
+  outdentNodes,
 } from './treeOps';
 
 const initialSettings = { hideCompleted: false, theme: 'light' as const };
@@ -198,6 +201,25 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       if (nextTree === state.tree) return state;
       return withCommit(state, { tree: nextTree });
     }
+    case 'BULK_TOGGLE_COMPLETE': {
+      if (action.ids.length === 0) return state;
+      const anyIncomplete = action.ids.some((id) => findNodeById(state.tree, id)?.completed === false);
+      const nextTree = setNodesCompleted(state.tree, action.ids, anyIncomplete);
+      if (nextTree === state.tree) return state;
+      return withCommit(state, { tree: nextTree });
+    }
+    case 'BULK_INDENT': {
+      if (action.ids.length === 0) return state;
+      const nextTree = indentNodes(state.tree, action.ids);
+      if (nextTree === state.tree) return state;
+      return withCommit(state, { tree: nextTree });
+    }
+    case 'BULK_OUTDENT': {
+      if (action.ids.length === 0) return state;
+      const nextTree = outdentNodes(state.tree, action.ids);
+      if (nextTree === state.tree) return state;
+      return withCommit(state, { tree: nextTree });
+    }
     case 'NEW_SIBLING_AFTER': {
       const fresh = action.newId
         ? createNode({ id: action.newId, text: '' })
@@ -233,9 +255,14 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'OUTDENT': {
       const nextTree = outdentNode(state.tree, action.id);
       if (nextTree === state.tree) return state;
+      // Keep the user's current view in place — outdenting never re-zooms. If the
+      // outdented node lands outside the zoomed subtree, it just leaves view.
       const stillVisible = getChildrenForZoom(nextTree, state.zoomPath).some((n) => n.id === action.id);
-      const zoomPath = stillVisible ? state.zoomPath : getZoomPathToNode(nextTree, action.id);
-      return withCommit(state, { tree: nextTree, focusedId: action.id, focusCaret: 'all', zoomPath });
+      return withCommit(state, {
+        tree: nextTree,
+        focusedId: stillVisible ? action.id : null,
+        focusCaret: 'all',
+      });
     }
     case 'ZOOM_INTO': {
       const loc = locateNode(state.tree, action.id);

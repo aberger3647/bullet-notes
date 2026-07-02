@@ -46,6 +46,12 @@ export function makeContextValue(
     setEditingBullet: vi.fn(),
     scheduleClearEditingBullet: vi.fn(),
     keepEditingBullet: vi.fn(),
+    selectedIds: new Set<string>(),
+    selectRange: vi.fn(),
+    clearSelection: vi.fn(),
+    bulkIndent: vi.fn(),
+    bulkOutdent: vi.fn(),
+    bulkToggleComplete: vi.fn(),
     ...overrides,
   };
 }

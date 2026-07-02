@@ -122,9 +122,19 @@ export function BulletRow({
   prevVisibleId,
   nextVisibleId,
 }: BulletRowProps) {
-  const { state, dispatch, shareNode, setEditingBullet, scheduleClearEditingBullet, readOnly, otherPresences } =
-    useAppState();
+  const {
+    state,
+    dispatch,
+    shareNode,
+    setEditingBullet,
+    scheduleClearEditingBullet,
+    readOnly,
+    otherPresences,
+    selectedIds,
+    selectRange,
+  } = useAppState();
   const editors = otherPresences.filter((p) => p.editingId === node.id);
+  const isSelected = selectedIds.has(node.id);
   const editRef = useRef<HTMLDivElement>(null);
   const [shareBusy, setShareBusy] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
@@ -143,8 +153,15 @@ export function BulletRow({
 
   useEffect(() => {
     const el = editRef.current;
-    if (!el || document.activeElement === el) return;
-    if (el.textContent !== node.text) {
+    if (!el || el.textContent === node.text) return;
+    // While focused, this only means the text changed for a reason other than
+    // the user's own typing here (e.g. undo/redo, or another client's edit on
+    // a shared doc) — apply it but preserve the caret position.
+    if (document.activeElement === el) {
+      const offset = getCaretOffset(el);
+      el.textContent = node.text;
+      placeCaretAtOffset(el, offset);
+    } else {
       el.textContent = node.text;
     }
   }, [node.text]);
@@ -179,10 +196,6 @@ export function BulletRow({
   };
 
   const deleteThisBullet = () => {
-    if (node.children.length > 0) {
-      const label = node.text.trim() || 'this bullet';
-      if (!window.confirm(`Delete "${label}" and all of its sub-bullets?`)) return;
-    }
     dispatch({ type: 'DELETE_NODE', id: node.id });
   };
 
@@ -336,7 +349,12 @@ export function BulletRow({
     <div
       ref={setNodeRef}
       style={style}
-      className={`bullet-row ${node.completed ? 'completed' : ''} ${isShared ? 'bullet-row--shared' : ''}`}
+      className={cn(
+        'bullet-row',
+        node.completed && 'completed',
+        isShared && 'bullet-row--shared',
+        isSelected && 'bullet-row--selected',
+      )}
       onPointerDown={onSwipePointerDown}
       onPointerMove={onSwipePointerMove}
       onPointerUp={endSwipe}
@@ -351,7 +369,7 @@ export function BulletRow({
           type="button"
           variant="ghost"
           size="icon-sm"
-          className={cn('share-btn', isShared && 'text-primary')}
+          className="share-btn"
           aria-label={isShared ? 'Shared — tap to share link' : 'Share this bullet'}
           disabled={shareBusy}
           onClick={(e) => {
@@ -385,15 +403,24 @@ export function BulletRow({
 
       <button
         type="button"
-        className={`bullet-marker ${hasChildren ? 'bullet-marker--parent' : 'bullet-marker--leaf'}`}
+        className={cn(
+          'bullet-marker',
+          hasChildren ? 'bullet-marker--parent' : 'bullet-marker--leaf',
+          isShared && 'bg-blue-500/15 dark:bg-blue-400/20',
+        )}
         aria-label="Open sub-bullets in page view"
-        onClick={() =>
+        onClick={(e) => {
+          if (e.shiftKey && !readOnly) {
+            e.preventDefault();
+            selectRange(node.id);
+            return;
+          }
           dispatch({
             type: 'ZOOM_INTO',
             id: node.id,
             ...(hasChildren || readOnly ? {} : { newChildId: crypto.randomUUID() }),
-          })
-        }
+          });
+        }}
         {...(readOnly ? {} : attributes)}
         {...(readOnly ? {} : listeners)}
       >

@@ -61,10 +61,6 @@ export function MobileEditToolbar() {
   };
 
   const onDelete = () => {
-    if (node.children.length > 0) {
-      const label = node.text.trim() || 'this bullet';
-      if (!window.confirm(`Delete “${label}” and all of its sub-bullets?`)) return;
-    }
     dispatch({ type: 'DELETE_NODE', id: editingBulletId });
   };
 
@@ -85,7 +81,7 @@ export function MobileEditToolbar() {
     if (token) {
       setShareBusy(true);
       const url = shareUrl(token);
-      const title = `${(node.text.trim() || 'Shared bullet')} — Bullet Notes`;
+      const title = `${(node.text.trim() || 'Shared bullet')} — Honeydew`;
       void openShareSheet(title, url)
         .then((result) => completeShareForBullet(editingBulletId, token, result))
         .catch(() => {})

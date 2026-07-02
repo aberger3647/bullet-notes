@@ -24,7 +24,7 @@ describe('useGlobalUndoRedo', () => {
     expect(dispatch).toHaveBeenCalledWith({ type: 'REDO' });
   });
 
-  it('skips when the keystroke targets an INPUT / TEXTAREA / contentEditable', () => {
+  it('skips when the keystroke targets a plain INPUT / TEXTAREA (e.g. Settings fields)', () => {
     const dispatch = vi.fn();
     renderHook(() => useGlobalUndoRedo(dispatch));
 
@@ -36,6 +36,15 @@ describe('useGlobalUndoRedo', () => {
     document.body.appendChild(textarea);
     fireEvent.keyDown(textarea, { key: 'z', metaKey: true });
 
+    expect(dispatch).not.toHaveBeenCalled();
+    input.remove();
+    textarea.remove();
+  });
+
+  it('still dispatches UNDO when the keystroke targets a contentEditable bullet field', () => {
+    const dispatch = vi.fn();
+    renderHook(() => useGlobalUndoRedo(dispatch));
+
     const editable = document.createElement('div');
     editable.contentEditable = 'true';
     // jsdom does not compute isContentEditable from the attribute; force it.
@@ -43,9 +52,7 @@ describe('useGlobalUndoRedo', () => {
     document.body.appendChild(editable);
     fireEvent.keyDown(editable, { key: 'z', metaKey: true });
 
-    expect(dispatch).not.toHaveBeenCalled();
-    input.remove();
-    textarea.remove();
+    expect(dispatch).toHaveBeenCalledWith({ type: 'UNDO' });
     editable.remove();
   });
 

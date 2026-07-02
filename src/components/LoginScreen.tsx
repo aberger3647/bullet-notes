@@ -46,7 +46,7 @@ export function LoginScreen() {
     <div className="flex min-h-screen items-center justify-center p-8">
       <Card className="w-full max-w-sm text-center">
         <CardHeader>
-          <CardTitle className="text-2xl">Bullet Notes</CardTitle>
+          <CardTitle className="text-2xl">Honeydew</CardTitle>
           <CardDescription>
             Sign in to access your notes. Your outline is saved securely in the cloud and syncs across
             devices.

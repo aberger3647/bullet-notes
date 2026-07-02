@@ -2,7 +2,7 @@
 
 ## Cursor Cloud specific instructions
 
-Bullet Notes is a **single React 19 + Vite + TypeScript SPA** (no local backend). It talks
+Honeydew is a **single React 19 + Vite + TypeScript SPA** (no local backend). It talks
 directly to a **self-hosted Supabase** (`VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`, provided
 as Cloud Agent secrets and pointing at `https://supabase.csbod.com`). Standard commands live in
 `package.json` (`dev`, `build`, `lint`, `preview`, `migrate`) — use those; the dev server runs on

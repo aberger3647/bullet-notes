@@ -3,12 +3,11 @@ import { Routes, Route, useParams } from 'react-router-dom';
 import { Home, Settings, Plus, Users } from 'lucide-react';
 import { BulletList } from './components/BulletList';
 import { MobileEditToolbar } from './components/MobileEditToolbar';
+import { SelectionToolbar } from './components/SelectionToolbar';
 import { DocsPage } from './components/DocsPage';
-import { MyDocumentsPage } from './components/MyDocumentsPage';
 import { SettingsPanel } from './components/SettingsPanel';
 import { RequireAuth } from './components/RequireAuth';
 import { AppStateProvider } from './context/AppStateProvider';
-import { DocStateProvider } from './context/DocStateProvider';
 import { useAppState } from './hooks/useAppState';
 import { useGlobalUndoRedo } from './hooks/useGlobalUndoRedo';
 import { useDocumentTitle } from './hooks/useDocumentTitle';
@@ -31,8 +30,18 @@ function syncStatusLabel(status: string, otherEditors: number): string {
 }
 
 function Shell() {
-  const { state, dispatch, mode, syncStatus, otherEditors, readOnly, shareMessage, editingBulletId } =
-    useAppState();
+  const {
+    state,
+    dispatch,
+    mode,
+    syncStatus,
+    otherEditors,
+    readOnly,
+    shareMessage,
+    editingBulletId,
+    selectedIds,
+    clearSelection,
+  } = useAppState();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchFocusToken, setSearchFocusToken] = useState(0);
   const keyboardBottom = useVisualViewportBottom();
@@ -43,11 +52,15 @@ function Shell() {
         e.preventDefault();
         setSettingsOpen(true);
         setSearchFocusToken((t) => t + 1);
+        return;
+      }
+      if (e.key === 'Escape' && selectedIds.size > 0) {
+        clearSelection();
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  }, [selectedIds, clearSelection]);
   const shellStyle = useMemo(
     () => ({ '--keyboard-inset': `${keyboardBottom}px` }) as CSSProperties,
     [keyboardBottom],
@@ -205,6 +218,7 @@ function Shell() {
       />
 
       <MobileEditToolbar />
+      <SelectionToolbar />
     </div>
   );
 }
@@ -218,16 +232,6 @@ function DocumentRoute({ mode }: { mode: 'local' | 'shared' }) {
   );
 }
 
-function DocPageRoute() {
-  const { docId } = useParams();
-  if (!docId) return null;
-  return (
-    <DocStateProvider docId={docId}>
-      <Shell />
-    </DocStateProvider>
-  );
-}
-
 export default function App() {
   return (
     <Routes>
@@ -236,22 +240,6 @@ export default function App() {
         element={
           <RequireAuth>
             <DocsPage />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/pages"
-        element={
-          <RequireAuth>
-            <MyDocumentsPage />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/page/:docId"
-        element={
-          <RequireAuth>
-            <DocPageRoute />
           </RequireAuth>
         }
       />

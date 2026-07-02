@@ -46,6 +46,9 @@ export type AppAction =
   | { type: 'INDENT'; id: string }
   | { type: 'OUTDENT'; id: string }
   | { type: 'TOGGLE_COMPLETE'; id: string }
+  | { type: 'BULK_INDENT'; ids: string[] }
+  | { type: 'BULK_OUTDENT'; ids: string[] }
+  | { type: 'BULK_TOGGLE_COMPLETE'; ids: string[] }
   | { type: 'SET_TEXT'; id: string; text: string }
   | { type: 'DELETE_NODE'; id: string }
   | { type: 'MERGE_WITH_PREVIOUS'; id: string; targetId: string }

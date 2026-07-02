@@ -94,3 +94,72 @@ describe('AppStateProvider', () => {
     expect(getContext().state.tree[0]!.completed).toBe(true);
   });
 });
+
+describe('AppStateProvider selection', () => {
+  it('selects a single bullet on the first selectRange call', () => {
+    const { getContext } = renderWithProvider(<div />, { seed: seed([node('a'), node('b'), node('c')]) });
+    act(() => getContext().selectRange('b'));
+    expect(getContext().selectedIds).toEqual(new Set(['b']));
+  });
+
+  it('selects the contiguous range between the anchor and a later click, in either direction', () => {
+    const { getContext } = renderWithProvider(<div />, {
+      seed: seed([node('a'), node('b'), node('c'), node('d')]),
+    });
+    act(() => getContext().selectRange('b'));
+    act(() => getContext().selectRange('d'));
+    expect(getContext().selectedIds).toEqual(new Set(['b', 'c', 'd']));
+
+    act(() => getContext().clearSelection());
+    act(() => getContext().selectRange('d'));
+    act(() => getContext().selectRange('b'));
+    expect(getContext().selectedIds).toEqual(new Set(['b', 'c', 'd']));
+  });
+
+  it('clearSelection empties the selection and resets the anchor', () => {
+    const { getContext } = renderWithProvider(<div />, { seed: seed([node('a'), node('b')]) });
+    act(() => getContext().selectRange('a'));
+    act(() => getContext().clearSelection());
+    expect(getContext().selectedIds.size).toBe(0);
+    // A fresh selectRange after clearing starts a new anchor at the clicked id.
+    act(() => getContext().selectRange('b'));
+    expect(getContext().selectedIds).toEqual(new Set(['b']));
+  });
+
+  it('bulkToggleComplete marks the whole selection complete when any is incomplete, then clears selection', () => {
+    const { getContext } = renderWithProvider(<div />, {
+      seed: seed([node('a', [], { completed: true }), node('b'), node('c')]),
+    });
+    act(() => getContext().selectRange('a'));
+    act(() => getContext().selectRange('c'));
+    act(() => getContext().bulkToggleComplete());
+    expect(getContext().state.tree.map((n) => n.completed)).toEqual([true, true, true]);
+    expect(getContext().selectedIds.size).toBe(0);
+  });
+
+  it('bulkIndent nests the selected run under the preceding sibling, then clears selection', () => {
+    const { getContext } = renderWithProvider(<div />, {
+      seed: seed([node('a'), node('b'), node('c'), node('d')]),
+    });
+    act(() => getContext().selectRange('b'));
+    act(() => getContext().selectRange('c'));
+    act(() => getContext().bulkIndent());
+    expect(getContext().state.tree.map((n) => n.id)).toEqual(['a', 'd']);
+    expect(getContext().state.tree[0]!.children.map((n) => n.id)).toEqual(['b', 'c']);
+    expect(getContext().selectedIds.size).toBe(0);
+  });
+
+  it('bulkOutdent lifts the selected run of children out to sibling level, then clears selection', () => {
+    const { getContext } = renderWithProvider(<div />, {
+      seed: seed([node('a', [node('b'), node('c'), node('d')]), node('e')]),
+    });
+    // b/c/d are only clickable (and thus selectable) once 'a' is expanded, same as real UI usage.
+    act(() => getContext().toggleExpand('a'));
+    act(() => getContext().selectRange('b'));
+    act(() => getContext().selectRange('d'));
+    act(() => getContext().bulkOutdent());
+    expect(getContext().state.tree.map((n) => n.id)).toEqual(['a', 'b', 'c', 'd', 'e']);
+    expect(getContext().state.tree[0]!.children).toEqual([]);
+    expect(getContext().selectedIds.size).toBe(0);
+  });
+});

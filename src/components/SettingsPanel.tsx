@@ -8,9 +8,7 @@ import { exportToJSON, exportToMarkdown, exportToPlainText } from '../lib/export
 import { parseImportedOutline } from '../lib/importOutline';
 import { useSnapshotsList } from '../sync/useSnapshotsList';
 import { useMySharesList } from '../sync/useMySharesList';
-import { updateProfileName, deleteMyData } from '../sync/accountApi';
-import { listTemplates, saveTemplate, deleteTemplate, type Template } from '../lib/templatesStorage';
-import { findNodeById } from '../state/treeOps';
+import { updateProfileName } from '../sync/accountApi';
 import { SearchSection } from './SearchSection';
 import { ListSkeleton } from './ListSkeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -75,7 +73,6 @@ export function SettingsPanel({ open, onClose, searchFocusToken }: Props) {
 
   const [displayName, setDisplayName] = useState(user?.user_metadata?.full_name ?? '');
   const [savingName, setSavingName] = useState(false);
-  const [deletingData, setDeletingData] = useState(false);
 
   const onSaveName = async () => {
     setSavingName(true);
@@ -88,25 +85,9 @@ export function SettingsPanel({ open, onClose, searchFocusToken }: Props) {
     }
   };
 
-  const onDeleteMyData = async () => {
-    const typed = window.prompt(
-      'This permanently deletes all your Bullet Notes documents, snapshots, and shared links (your sign-in account itself is not affected). Type DELETE to confirm.',
-    );
-    if (typed !== 'DELETE') return;
-    setDeletingData(true);
-    try {
-      await deleteMyData();
-      await signOut();
-    } catch {
-      window.alert('Could not delete your data. Try again.');
-    } finally {
-      setDeletingData(false);
-    }
-  };
-
-  const onExportMarkdown = () => downloadFile('bullet-notes.md', 'text/markdown', exportToMarkdown(state.tree));
-  const onExportPlainText = () => downloadFile('bullet-notes.txt', 'text/plain', exportToPlainText(state.tree));
-  const onExportJSON = () => downloadFile('bullet-notes.json', 'application/json', exportToJSON(state.tree));
+  const onExportMarkdown = () => downloadFile('honeydew.md', 'text/markdown', exportToMarkdown(state.tree));
+  const onExportPlainText = () => downloadFile('honeydew.txt', 'text/plain', exportToPlainText(state.tree));
+  const onExportJSON = () => downloadFile('honeydew.json', 'application/json', exportToJSON(state.tree));
 
   const importInputRef = useRef<HTMLInputElement>(null);
   const parentId = state.zoomPath.length > 0 ? state.zoomPath[state.zoomPath.length - 1]! : '__root__';
@@ -151,52 +132,6 @@ export function SettingsPanel({ open, onClose, searchFocusToken }: Props) {
     });
   };
 
-  const [templates, setTemplates] = useState<Template[]>(() => listTemplates());
-  // Refresh the template list synchronously (not in an effect — it's a pure,
-  // cheap localStorage read) whenever the panel transitions from closed to open.
-  const [prevOpen, setPrevOpen] = useState(open);
-  if (open !== prevOpen) {
-    setPrevOpen(open);
-    if (open) setTemplates(listTemplates());
-  }
-
-  const onGoToTodayNote = () => {
-    const today = new Date().toISOString().slice(0, 10);
-    const existing = state.tree.find((n) => n.text === today);
-    if (existing) {
-      dispatch({ type: 'NAVIGATE_TO_BULLET', id: existing.id });
-      onClose();
-      return;
-    }
-    const newId = crypto.randomUUID();
-    dispatch({ type: 'APPEND_CHILD', parentId: '__root__', newId });
-    dispatch({ type: 'SET_TEXT', id: newId, text: today });
-    dispatch({ type: 'ZOOM_INTO', id: newId });
-    onClose();
-  };
-
-  const zoomedNode = state.zoomPath.length > 0 ? state.zoomPath[state.zoomPath.length - 1]! : null;
-
-  const onSaveCurrentPageAsTemplate = () => {
-    if (!zoomedNode) return;
-    const root = findNodeById(state.tree, zoomedNode);
-    if (!root) return;
-    const name = window.prompt('Name this template:');
-    if (!name) return;
-    saveTemplate(name, root);
-    setTemplates(listTemplates());
-  };
-
-  const onInsertTemplate = (template: Template) => {
-    dispatch({ type: 'IMPORT_OUTLINE', parentId: '__root__', roots: [template.root] });
-  };
-
-  const onDeleteTemplate = (id: string) => {
-    if (!window.confirm('Delete this template?')) return;
-    deleteTemplate(id);
-    setTemplates(listTemplates());
-  };
-
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="flex max-h-[85vh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
@@ -227,16 +162,6 @@ export function SettingsPanel({ open, onClose, searchFocusToken }: Props) {
             <div className="mt-2 flex gap-2">
               <Button type="button" variant="outline" size="sm" className="flex-1" onClick={() => void signOut()}>
                 Sign out
-              </Button>
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                className="flex-1"
-                disabled={deletingData}
-                onClick={() => void onDeleteMyData()}
-              >
-                Delete my data
               </Button>
             </div>
           </section>
@@ -320,47 +245,6 @@ export function SettingsPanel({ open, onClose, searchFocusToken }: Props) {
             </div>
           </section>
 
-          {!isShared ? (
-            <>
-              <Separator className="my-4" />
-              <section>
-                <SectionHeading>Daily notes &amp; templates</SectionHeading>
-                <div className="flex flex-wrap gap-2">
-                  <Button type="button" variant="outline" size="sm" className="flex-1" onClick={onGoToTodayNote}>
-                    Go to today's note
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    disabled={!zoomedNode}
-                    onClick={onSaveCurrentPageAsTemplate}
-                  >
-                    Save current page as template
-                  </Button>
-                </div>
-                {templates.length > 0 ? (
-                  <ul className="mt-2 rounded-lg border" role="listbox" aria-label="Templates">
-                    {templates.map((t) => (
-                      <ResultRow key={t.id}>
-                        <span className="text-sm">{t.name}</span>
-                        <div className="flex gap-2">
-                          <Button type="button" variant="outline" size="sm" onClick={() => onInsertTemplate(t)}>
-                            Insert
-                          </Button>
-                          <Button type="button" variant="outline" size="sm" onClick={() => onDeleteTemplate(t.id)}>
-                            Delete
-                          </Button>
-                        </div>
-                      </ResultRow>
-                    ))}
-                  </ul>
-                ) : null}
-              </section>
-            </>
-          ) : null}
-
           <Separator className="my-4" />
 
           {isShared ? (
@@ -374,7 +258,7 @@ export function SettingsPanel({ open, onClose, searchFocusToken }: Props) {
             <section>
               <SectionHeading>History</SectionHeading>
               <p className="mb-2 text-sm text-muted-foreground">
-                Shortcuts work when focus is not in a bullet field:{' '}
+                Shortcuts work from anywhere, including while editing a bullet:{' '}
                 <kbd className="rounded border px-1.5 py-0.5 text-xs">
                   {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}
                 </kbd>
@@ -436,23 +320,6 @@ export function SettingsPanel({ open, onClose, searchFocusToken }: Props) {
 
           {!isShared ? (
             <>
-              <Separator className="my-4" />
-              <section>
-                <SectionHeading>Documents</SectionHeading>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="w-full justify-between"
-                  onClick={() => {
-                    onClose();
-                    navigate('/pages');
-                  }}
-                >
-                  My documents
-                  <ChevronRight className="size-4" aria-hidden />
-                </Button>
-              </section>
-
               <Separator className="my-4" />
 
               <section>

@@ -113,17 +113,63 @@ describe('OUTDENT', () => {
     expect(getChildrenForZoom(next.tree, next.zoomPath).some((n) => n.id === 'c')).toBe(true);
   });
 
-  it('recomputes zoomPath when the outdented node leaves the current view', () => {
+  it('keeps the current zoomPath even when the outdented node leaves the current view', () => {
     // Viewing b's children (['c']); outdent c so it becomes a sibling of b under a.
+    // The view should NOT jump out to follow it — it just leaves the zoomed-in view.
     const s = stateWith(threeLevel(), { zoomPath: ['a', 'b'] });
     const next = appReducer(s, { type: 'OUTDENT', id: 'c' });
-    expect(next.zoomPath).toEqual(['a']); // c is now a child of a
-    expect(getChildrenForZoom(next.tree, next.zoomPath).some((n) => n.id === 'c')).toBe(true);
+    expect(next.zoomPath).toEqual(['a', 'b']);
+    expect(next.focusedId).toBeNull();
+    expect(getChildrenForZoom(next.tree, next.zoomPath).some((n) => n.id === 'c')).toBe(false);
   });
 
   it('is a no-op for a root-level node', () => {
     const s = stateWith([node('a'), node('b')]);
     expect(appReducer(s, { type: 'OUTDENT', id: 'a' })).toBe(s);
+  });
+});
+
+describe('BULK_TOGGLE_COMPLETE', () => {
+  it('marks all selected complete when any is incomplete, in one history commit', () => {
+    const s = stateWith([node('a', [], { completed: true }), node('b'), node('c')]);
+    const next = appReducer(s, { type: 'BULK_TOGGLE_COMPLETE', ids: ['a', 'b', 'c'] });
+    expect(next.tree.map((n) => n.completed)).toEqual([true, true, true]);
+    expect(next.history.past).toHaveLength(1);
+  });
+
+  it('marks all selected incomplete when all are already complete', () => {
+    const s = stateWith([
+      node('a', [], { completed: true }),
+      node('b', [], { completed: true }),
+    ]);
+    const next = appReducer(s, { type: 'BULK_TOGGLE_COMPLETE', ids: ['a', 'b'] });
+    expect(next.tree.map((n) => n.completed)).toEqual([false, false]);
+  });
+
+  it('is a no-op for an empty selection', () => {
+    const s = stateWith([node('a')]);
+    expect(appReducer(s, { type: 'BULK_TOGGLE_COMPLETE', ids: [] })).toBe(s);
+  });
+});
+
+describe('BULK_INDENT', () => {
+  it('indents a contiguous run of siblings under the preceding one, preserving their order', () => {
+    const s = stateWith([node('a'), node('b'), node('c'), node('d')]);
+    const next = appReducer(s, { type: 'BULK_INDENT', ids: ['b', 'c', 'd'] });
+    expect(next.tree.map((n) => n.id)).toEqual(['a']);
+    expect(next.tree[0]!.children.map((n) => n.id)).toEqual(['b', 'c', 'd']);
+    expect(next.history.past).toHaveLength(1);
+  });
+});
+
+describe('BULK_OUTDENT', () => {
+  it('outdents a contiguous run of children, preserving their order after the parent', () => {
+    const tree = [node('a', [node('b'), node('c'), node('d')]), node('e')];
+    const s = stateWith(tree);
+    const next = appReducer(s, { type: 'BULK_OUTDENT', ids: ['b', 'c', 'd'] });
+    expect(next.tree.map((n) => n.id)).toEqual(['a', 'b', 'c', 'd', 'e']);
+    expect(next.tree[0]!.children).toEqual([]);
+    expect(next.history.past).toHaveLength(1);
   });
 });
 

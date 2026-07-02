@@ -30,7 +30,7 @@ const shortcuts: Shortcut[] = [
   { keys: [mod, 'V'], action: 'Paste a copied bullet as a new sibling' },
   { keys: [mod, 'Enter'], action: 'Toggle complete' },
   { keys: [mod, 'K'], action: 'Open search from anywhere' },
-  { keys: [mod, 'Z'], action: 'Undo (outside text fields)' },
+  { keys: [mod, 'Z'], action: 'Undo' },
   { keys: [mod, 'Shift', 'Z'], action: 'Redo' },
 ];
 
@@ -44,7 +44,7 @@ export function DocsPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    document.title = 'Documentation · Bullet Notes';
+    document.title = 'Documentation · Honeydew';
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
@@ -68,7 +68,7 @@ export function DocsPage() {
       body: (
         <>
           <p>
-            Bullet Notes is a hierarchical outliner. Each line is a bullet that can have nested
+            Honeydew is a hierarchical outliner. Each line is a bullet that can have nested
             children. Click a bullet to edit, press <Kbd>Enter</Kbd> for a new sibling, and use the{' '}
             <strong>+</strong> button to add a bullet at the top of your current view.
           </p>
@@ -83,9 +83,9 @@ export function DocsPage() {
           <p>
             Press <Kbd>{mod}</Kbd>+<Kbd>D</Kbd> to <strong>duplicate</strong> a bullet and its
             children as a new sibling. Press <Kbd>{mod}</Kbd>+<Kbd>Backspace</Kbd> to delete a
-            bullet outright (you&apos;ll be asked to confirm if it has children) — or press{' '}
-            <Kbd>Backspace</Kbd> at the start of a bullet to merge it into the bullet above,
-            carrying its children up with it.
+            bullet and its children outright, immediately — no confirmation prompt; undo if it was
+            a mistake. Or press <Kbd>Backspace</Kbd> at the start of a bullet to merge it into the
+            bullet above, carrying its children up with it.
           </p>
           <p>
             Use <Kbd>Shift</Kbd>+<Kbd>Enter</Kbd> to add a line break inside a bullet instead of
@@ -153,6 +153,26 @@ export function DocsPage() {
       ),
     },
     {
+      id: 'multi-select',
+      title: 'Selecting multiple bullets',
+      body: (
+        <>
+          <p>
+            <Kbd>Shift</Kbd>+click a bullet&apos;s circle marker, then <Kbd>Shift</Kbd>+click
+            another to select every visible bullet in between. Selected bullets get a light-blue
+            highlight, and a toolbar appears at the bottom with bulk actions.
+          </p>
+          <p>
+            <strong>Complete</strong> marks the whole selection complete (or incomplete again, if
+            they're all already complete); <strong>Indent</strong> and <strong>Outdent</strong>{' '}
+            move the whole selection together, keeping their relative order. Press{' '}
+            <Kbd>Esc</Kbd>, click the <Kbd>✕</Kbd>, or click into a bullet to edit it to clear the
+            selection.
+          </p>
+        </>
+      ),
+    },
+    {
       id: 'search',
       title: 'Search',
       body: (
@@ -190,7 +210,7 @@ export function DocsPage() {
       body: (
         <>
           <p>
-            Bullet Notes requires a <strong>Google account</strong>. Sign in on first visit to
+            Honeydew requires a <strong>Google account</strong>. Sign in on first visit to
             access your notes, shared links, and this documentation.
           </p>
           <p>
@@ -200,12 +220,6 @@ export function DocsPage() {
           <p>
             Sign out anytime from <strong>Settings → Account</strong>. Your notes stay saved in the
             cloud and are available when you sign back in.
-          </p>
-          <p>
-            <strong>Delete my data</strong> in Settings → Account permanently deletes all of your
-            Bullet Notes content — your primary document, any extra documents, version-history
-            snapshots, and shares you created — after you type <Kbd>DELETE</Kbd> to confirm. It
-            does not delete your Google sign-in itself.
           </p>
         </>
       ),
@@ -252,12 +266,12 @@ export function DocsPage() {
           <p>
             If your connection drops, your <strong>primary document</strong> keeps working from
             the last version that synced successfully — a banner lets you know you&apos;re offline,
-            and changes sync again once you&apos;re back online. Bullet Notes can also be{' '}
+            and changes sync again once you&apos;re back online. Honeydew can also be{' '}
             <strong>installed</strong> like an app from your browser&apos;s install/add-to-home-screen
             prompt.
           </p>
           <p>
-            If you used Bullet Notes before cloud storage, notes in browser localStorage are
+            If you used Honeydew before cloud storage, notes in browser localStorage are
             imported on your first sign-in.
           </p>
         </>
@@ -284,52 +298,15 @@ export function DocsPage() {
       ),
     },
     {
-      id: 'documents',
-      title: 'Multiple documents',
-      body: (
-        <>
-          <p>
-            Your <Kbd>/</Kbd> document is still your one primary, always-synced outline. Open{' '}
-            <strong>Settings → My documents</strong> for extra, separate documents — useful for
-            keeping a project or archive apart from your main outline.
-          </p>
-          <p>
-            Create a blank document, or save a copy of your primary outline as a new one to start
-            from. Each document has its own URL (<Kbd>/page/:id</Kbd>) with its own zoom, editing,
-            and sharing.
-          </p>
-        </>
-      ),
-    },
-    {
       id: 'history',
       title: 'Version history',
       body: (
         <>
           <p>
-            Bullet Notes automatically snapshots your primary document at most once a day. Open{' '}
+            Honeydew automatically snapshots your primary document at most once a day. Open{' '}
             <strong>Settings → Version history</strong> to see past versions by date and{' '}
             <strong>restore</strong> one — this replaces your current bullets, so you&apos;ll be
             asked to confirm first.
-          </p>
-        </>
-      ),
-    },
-    {
-      id: 'daily',
-      title: 'Daily notes & templates',
-      body: (
-        <>
-          <p>
-            <strong>Settings → Go to today&apos;s note</strong> jumps to (or creates) a bullet
-            titled with today&apos;s date at the top level of your primary document — a quick spot
-            for daily journaling.
-          </p>
-          <p>
-            Zoom into any bullet and use <strong>Settings → Save current page as template</strong>{' '}
-            to store its structure for reuse. Saved templates appear below that button — click{' '}
-            <strong>Insert</strong> to add a fresh copy anywhere, or <strong>Delete</strong> to
-            remove a template you no longer need.
           </p>
         </>
       ),
@@ -351,7 +328,7 @@ export function DocsPage() {
         </Button>
         <h1 className="mb-1.5 text-2xl font-bold">Documentation</h1>
         <p className="text-muted-foreground">
-          Everything you can do in Bullet Notes — shortcuts, search, zoom, and more.
+          Everything you can do in Honeydew — shortcuts, search, zoom, and more.
         </p>
       </header>
 

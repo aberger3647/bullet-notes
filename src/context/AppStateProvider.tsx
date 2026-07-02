@@ -16,6 +16,7 @@ import {
   collectExpandableIds,
   findNodeById,
   extractSharedSubtree,
+  getVisibleOrder,
 } from '../state/treeOps';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { openShareSheet, shareUrl, type ShareResult } from '../lib/shareNode';
@@ -334,7 +335,7 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
       const node = findNodeById(treeRef.current, id);
       if (!node) return;
       const url = shareUrl(token);
-      const title = `${(node.text.trim() || 'Shared bullet')} — Bullet Notes`;
+      const title = `${(node.text.trim() || 'Shared bullet')} — Honeydew`;
       const result = await openShareSheet(title, url);
       commitShareResult(id, token, result);
     },
@@ -414,6 +415,59 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
     setExpanded(new Set());
   }, []);
 
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null);
+  const visibleOrder = useMemo(
+    () => getVisibleOrder(getVisibleForView(state), expanded, state.settings.hideCompleted),
+    [state, expanded],
+  );
+
+  const clearSelection = useCallback(() => {
+    setSelectionAnchor(null);
+    setSelectedIds(new Set());
+  }, []);
+
+  const selectRange = useCallback(
+    (id: string) => {
+      if (!selectionAnchor) {
+        setSelectionAnchor(id);
+        setSelectedIds(new Set([id]));
+        return;
+      }
+      const aIdx = visibleOrder.indexOf(selectionAnchor);
+      const bIdx = visibleOrder.indexOf(id);
+      if (aIdx === -1 || bIdx === -1) {
+        setSelectionAnchor(id);
+        setSelectedIds(new Set([id]));
+        return;
+      }
+      const [lo, hi] = aIdx <= bIdx ? [aIdx, bIdx] : [bIdx, aIdx];
+      setSelectedIds(new Set(visibleOrder.slice(lo, hi + 1)));
+    },
+    [selectionAnchor, visibleOrder],
+  );
+
+  const bulkIndent = useCallback(() => {
+    const ids = visibleOrder.filter((id) => selectedIds.has(id));
+    if (ids.length === 0) return;
+    wrappedDispatch({ type: 'BULK_INDENT', ids });
+    clearSelection();
+  }, [visibleOrder, selectedIds, wrappedDispatch, clearSelection]);
+
+  const bulkOutdent = useCallback(() => {
+    const ids = visibleOrder.filter((id) => selectedIds.has(id));
+    if (ids.length === 0) return;
+    wrappedDispatch({ type: 'BULK_OUTDENT', ids });
+    clearSelection();
+  }, [visibleOrder, selectedIds, wrappedDispatch, clearSelection]);
+
+  const bulkToggleComplete = useCallback(() => {
+    const ids = visibleOrder.filter((id) => selectedIds.has(id));
+    if (ids.length === 0) return;
+    wrappedDispatch({ type: 'BULK_TOGGLE_COMPLETE', ids });
+    clearSelection();
+  }, [visibleOrder, selectedIds, wrappedDispatch, clearSelection]);
+
   const clearEditingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const keepEditingBullet = useCallback(() => {
@@ -436,7 +490,8 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
     keepEditingBullet();
     setEditingBulletId(id);
     setEditingIndentParentId(indentParentId);
-  }, [keepEditingBullet]);
+    clearSelection();
+  }, [keepEditingBullet, clearSelection]);
 
   useEffect(() => {
     if (!editingBulletId || isShared || !isSupabaseConfigured()) return;
@@ -491,6 +546,12 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
       setEditingBullet,
       scheduleClearEditingBullet,
       keepEditingBullet,
+      selectedIds,
+      selectRange,
+      clearSelection,
+      bulkIndent,
+      bulkOutdent,
+      bulkToggleComplete,
     }),
     [
       state,
@@ -517,6 +578,12 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
       setEditingBullet,
       scheduleClearEditingBullet,
       keepEditingBullet,
+      selectedIds,
+      selectRange,
+      clearSelection,
+      bulkIndent,
+      bulkOutdent,
+      bulkToggleComplete,
     ],
   );
 

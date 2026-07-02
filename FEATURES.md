@@ -1,6 +1,6 @@
-# Bullet Notes — Feature Documentation
+# Honeydew — Feature Documentation
 
-Bullet Notes is a lightweight hierarchical outliner for capturing ideas in nested bullet form. This document describes every feature in the app.
+Honeydew is a lightweight hierarchical outliner for capturing ideas in nested bullet form. This document describes every feature in the app.
 
 ---
 
@@ -15,20 +15,19 @@ Bullet Notes is a lightweight hierarchical outliner for capturing ideas in neste
 7. [Inline Outline (Expand / Collapse)](#inline-outline-expand--collapse)
 8. [Completing Bullets](#completing-bullets)
 9. [Drag and Drop](#drag-and-drop)
-10. [Mobile Swipe-to-Delete](#mobile-swipe-to-delete)
-11. [Search & Tags](#search--tags)
-12. [Undo & Redo](#undo--redo)
-13. [Export & Import](#export--import)
-14. [Multiple Documents](#multiple-documents)
+10. [Multi-Select](#multi-select)
+11. [Mobile Swipe-to-Delete](#mobile-swipe-to-delete)
+12. [Search & Tags](#search--tags)
+13. [Undo & Redo](#undo--redo)
+14. [Export & Import](#export--import)
 15. [Version History](#version-history)
-16. [Daily Notes & Templates](#daily-notes--templates)
-17. [Settings Panel](#settings-panel)
-18. [Account & Sign-In](#account--sign-in)
-19. [Cloud Storage & Offline](#cloud-storage--offline)
-20. [Sharing & Real-Time Collaboration](#sharing--real-time-collaboration)
-21. [Navigation & Routes](#navigation--routes)
-22. [Browser Tab Title](#browser-tab-title)
-23. [Accessibility](#accessibility)
+16. [Settings Panel](#settings-panel)
+17. [Account & Sign-In](#account--sign-in)
+18. [Cloud Storage & Offline](#cloud-storage--offline)
+19. [Sharing & Real-Time Collaboration](#sharing--real-time-collaboration)
+20. [Navigation & Routes](#navigation--routes)
+21. [Browser Tab Title](#browser-tab-title)
+22. [Accessibility](#accessibility)
 
 ---
 
@@ -56,16 +55,14 @@ Each note is a **bullet** — a single line of text with optional child bullets 
 | Outdent (move up one level) | `Shift + Tab` |
 | Move to bullet above / below | `↑` / `↓` |
 | Merge into bullet above (or delete if empty) | `Backspace` at start of bullet |
-| Delete bullet + children | `Cmd/Ctrl + Backspace` |
+| Delete bullet + children | `Cmd/Ctrl + Backspace` (no confirmation — undo if needed) |
 | Duplicate bullet + children | `Cmd/Ctrl + D` |
 | Copy bullet + children | `Cmd/Ctrl + C` (with a collapsed caret, not a text selection) |
 | Paste a copied bullet as a new sibling | `Cmd/Ctrl + V` |
 | Toggle complete / incomplete | `Cmd + Enter` (Mac) or `Ctrl + Enter` (Windows/Linux) |
 | Open search from anywhere | `Cmd/Ctrl + K` |
-| Undo | `Cmd + Z` / `Ctrl + Z` (when focus is **not** in a text field) |
+| Undo | `Cmd + Z` / `Ctrl + Z` — works everywhere, including while editing a bullet |
 | Redo | `Cmd + Shift + Z` / `Ctrl + Shift + Z`, or `Ctrl + Y` on Windows |
-
-Undo and redo shortcuts are intentionally disabled while typing in a bullet field so normal text editing is unaffected.
 
 ---
 
@@ -80,7 +77,7 @@ Undo and redo shortcuts are intentionally disabled while typing in a bullet fiel
 ## Duplicate, Merge & Copy/Paste Subtrees
 
 - **Cmd/Ctrl + D** duplicates the current bullet and its entire subtree as a new sibling immediately after it, with fresh ids (and no inherited share link).
-- **Cmd/Ctrl + Backspace** deletes the current bullet and its children outright — you'll be asked to confirm if it has children.
+- **Cmd/Ctrl + Backspace** deletes the current bullet and its children outright, immediately — no confirmation prompt; undo if it was a mistake.
 - **Cmd/Ctrl + C** on a bullet (with the caret collapsed, not a text range selected) copies the bullet and everything nested under it — both as a readable tab-indented outline (for pasting into other apps) and as structured data.
 - **Cmd/Ctrl + V** reconstructs a copied subtree as a new sibling bullet, instead of flattening it into one bullet's text. Pasting plain text from elsewhere still inserts as text.
 
@@ -146,11 +143,23 @@ Reorder and restructure bullets by dragging.
 
 ---
 
+## Multi-Select
+
+Select a contiguous range of bullets to act on them together.
+
+- **Shift+click** a bullet's circle marker to start a selection; **Shift+click** another marker to select every visible bullet between the two (range selection, anchored at the first click).
+- Selected bullets get a light-blue row highlight, and a floating toolbar appears with **Complete**, **Outdent**, **Indent**, and a close (✕) button.
+- **Complete** marks the whole selection complete if any are incomplete, or marks them all incomplete if they're already all complete — one history commit, one undo.
+- **Indent** / **Outdent** move the whole selection together as a group, preserving their relative order, also as a single undoable commit.
+- The selection clears automatically after a bulk action, when focusing a bullet's text to edit it, or on **Esc**.
+
+---
+
 ## Mobile Swipe-to-Delete
 
 On touch devices, swiping a bullet row left reveals a red delete action behind it (in addition to the delete button in the mobile editing toolbar):
 
-- Swiping past ~72px and releasing deletes the bullet (with the same children confirmation as the keyboard shortcut).
+- Swiping past ~72px and releasing deletes the bullet immediately, same as the keyboard shortcut — no confirmation prompt.
 - A shorter swipe snaps back without deleting.
 - Vertical scrolling and mouse/pointer input are unaffected — only touch-initiated horizontal drags trigger the reveal.
 
@@ -232,7 +241,7 @@ Structural changes are tracked in a history stack (up to 50 snapshots).
 
 - Typing text (text edits apply immediately without polluting the undo stack)
 
-Undo and redo are available in the Settings panel and via global keyboard shortcuts. In shared documents, undo and redo are disabled to keep all collaborators on the same live state. For the primary local document, the undo/redo stack (up to 50 snapshots) and the expand/collapse state both **persist across reloads** in `localStorage`, separately from the cloud-synced document content.
+Undo and redo are available in the Settings panel and via global keyboard shortcuts, and work everywhere — including while your caret is in a bullet's text field, where they replace the browser's native per-keystroke undo with the app's tree-level history. In shared documents, undo and redo are disabled to keep all collaborators on the same live state. For the primary local document, the undo/redo stack (up to 50 snapshots) and the expand/collapse state both **persist across reloads** in `localStorage`, separately from the cloud-synced document content.
 
 ---
 
@@ -247,17 +256,6 @@ Available from **Settings → Export** / **Settings → Import**, for the primar
 
 ---
 
-## Multiple Documents
-
-Beyond the single always-synced primary document at `/`, **Settings → My documents** manages additional, separate documents:
-
-- **+ New document** creates a blank document and opens it.
-- **Save my primary outline as a new document** copies your current primary tree into a new document (non-destructive — your primary document is untouched).
-- Each saved document opens at its own route, `/page/:docId`, with its own zoom state, editing, undo/redo, and per-bullet sharing — everything works the same as the primary document, just as an independent tree.
-- Documents can be deleted from the list (with confirmation).
-
----
-
 ## Version History
 
 Available from **Settings → Version history**, for the primary local document.
@@ -265,16 +263,6 @@ Available from **Settings → Version history**, for the primary local document.
 - A snapshot of your primary document is taken automatically, server-side, **at most once per calendar day**, the first time the app loads that day.
 - Up to 30 snapshots are kept per account (older ones are pruned automatically).
 - Each snapshot is listed by timestamp; **Restore** replaces your current document with that snapshot's content — you're asked to confirm first, since it's destructive to your current state.
-
----
-
-## Daily Notes & Templates
-
-Available from **Settings → Daily notes & templates**, for the primary local document.
-
-- **Go to today's note** finds (or creates) a top-level bullet titled with today's date (`YYYY-MM-DD`) and zooms into it — a quick daily-journaling entry point.
-- **Save current page as template** (enabled while zoomed into a bullet) saves that bullet's subtree, under a name you provide, as a reusable template stored in `localStorage`.
-- Saved templates can be **inserted** (added as a new top-level bullet, with fresh ids) or **deleted** from the same panel.
 
 ---
 
@@ -287,7 +275,6 @@ Open the **gear** floating action button to access settings, or press **Cmd/Ctrl
 - Shows your signed-in Google email address.
 - **Display name** — editable; shown to collaborators next to your presence badge in shared documents.
 - **Sign out** ends your session and returns you to the sign-in screen.
-- **Delete my data** permanently deletes your primary document, extra documents, version-history snapshots, and shares you created, after typing `DELETE` to confirm, then signs you out. It does **not** delete your Google sign-in itself (that requires the Supabase Admin API, which isn't exposed client-side).
 
 ### Search
 
@@ -297,7 +284,7 @@ Full search interface with query syntax help and tag browsing (see [Search & Tag
 
 Toggle between **light mode** and **dark mode**. The theme preference is saved to your cloud document.
 
-### Export / Import / Documents / Version history / Daily notes & templates
+### Export / Import / Version history
 
 See their dedicated sections above.
 
@@ -319,12 +306,12 @@ Undo and redo buttons with keyboard shortcut hints, plus the version-history lis
 
 ## Account & Sign-In
 
-Bullet Notes requires a **Google account** to use. Sign in is required for all routes, including personal notes, shared links, and documentation.
+Honeydew requires a **Google account** to use. Sign in is required for all routes, including personal notes, shared links, and documentation.
 
 - On first visit, you see a **Sign in with Google** screen.
 - After signing in, you are returned to the page you were trying to open (including shared links).
 - Your session persists across browser restarts until you sign out.
-- Set a display name, sign out, or permanently delete your data from **Settings → Account**.
+- Set a display name or sign out from **Settings → Account**.
 
 Supabase must be configured (`VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`), and Google OAuth must be enabled in the Supabase dashboard.
 
@@ -357,7 +344,7 @@ Personal notes (the `/` route) are saved automatically to **Supabase PostgreSQL*
 
 ### Upgrading from local storage
 
-If you used Bullet Notes before cloud storage, notes saved in browser localStorage (`bullet-notes:v1`) are automatically imported into your account on first sign-in, then removed from localStorage.
+If you used this app before cloud storage, notes saved in browser localStorage (`bullet-notes:v1`) are automatically imported into your account on first sign-in, then removed from localStorage.
 
 ---
 
@@ -370,9 +357,9 @@ When Supabase is configured, you can share any bullet — and everything nested 
 1. On desktop, hover a bullet row. A **users icon** appears to the left of the bullet marker (alongside the expand triangle when the bullet has children).
 2. Click the users icon to create a secret share link for that bullet and its subtree.
 3. On mobile, your phone's share sheet opens so you can copy the link or send it via Messages, email, etc. On desktop without a native share sheet, the link is copied to your clipboard.
-4. After sharing, the users icon stays visible on that bullet so you can see it is shared.
+4. After sharing, the bullet's circle marker gets a light-blue highlight so you can see at a glance which bullets are shared.
 
-Click the icon again on an already-shared bullet to re-open the share sheet with the same link.
+Click the users icon again on an already-shared bullet to re-open the share sheet with the same link.
 
 ### Shared document URL
 
@@ -423,8 +410,6 @@ All routes require Google sign-in.
 |-------|------|-------------|
 | `/` | Personal | Your primary document stored in Supabase |
 | `/d/:shareToken` | Shared | A single shared bullet subtree loaded from Supabase |
-| `/pages` | Personal | List, create, and delete your extra documents (see [Multiple Documents](#multiple-documents)) |
-| `/page/:docId` | Personal | A single extra document, editable like the primary one |
 | `/docs` | Help | In-app documentation (open from Settings → Help) |
 
 The app is hosted at [honeydew.csbod.com](https://honeydew.csbod.com) and uses client-side routing (React Router). Netlify and similar hosts should redirect all paths to `index.html` for SPA support.
@@ -459,10 +444,10 @@ The document title updates dynamically:
 | UI | React 19, TypeScript, Vite |
 | Drag and drop | dnd-kit |
 | Authentication | Supabase Auth (Google OAuth) |
-| Personal storage | Supabase PostgreSQL (`bullet_notes_user_documents`, `bullet_notes_docs`, `bullet_notes_user_document_snapshots`) |
+| Personal storage | Supabase PostgreSQL (`bullet_notes_user_documents`, `bullet_notes_user_document_snapshots`) |
 | Sharing storage | Supabase PostgreSQL (`bullet_notes_documents`, with `permission`/`revoked`/`user_id` columns) |
 | Collaboration | Supabase (PostgreSQL + Realtime) |
 | Routing | React Router |
-| Styling | Custom CSS with light/dark themes |
+| Styling | Tailwind CSS + shadcn/ui, CSS-variable-driven light/dark theming |
 | Offline | Service worker (app-shell caching) + web manifest + a local fallback cache for the primary document |
 | Testing | Vitest (unit/integration) + Playwright (E2E, network-mocked) |

@@ -1,4 +1,4 @@
-# 📝 Bullet Notes
+# 📝 Honeydew
 
 **A simple hierarchical bullet note app for fast outlining, nesting, completing, and zooming into ideas.**
 
@@ -8,7 +8,7 @@ Live at [honeydew.csbod.com](https://honeydew.csbod.com)
 
 ## 📚 Overview
 
-**Bullet Notes** is a lightweight outliner built for quickly capturing ideas in nested bullet form.
+**Honeydew** is a lightweight outliner built for quickly capturing ideas in nested bullet form.
 
 Create bullets with **Enter**, indent notes with **Tab**, mark items complete with **Cmd/Ctrl + Enter**, and zoom into any bullet to focus only on its children. Sign in with **Google** to save your notes in the cloud and sync across devices.
 
@@ -71,10 +71,9 @@ Anyone who wants a simple way to:
 - 🌗 Light and dark mode
 - ☁️ Cloud storage synced to your Google account, with offline fallback and an installable app shell
 - 📤 Export to Markdown/text/JSON, import from JSON/Markdown/text outlines
-- 📚 Multiple documents, daily notes, and reusable templates
 - 🕰️ Automatic daily version-history snapshots with one-click restore
 - 🔗 Per-bullet sharing with real-time collaboration, view-only links, and share revocation
-- 👤 Profile display name, and a self-service "delete my data" option
+- 👤 Profile display name shown to collaborators on shared documents
 
 ---
 
@@ -132,8 +131,6 @@ E2E tests mock all Supabase network/auth/realtime traffic (see `e2e/support/mock
 |-------|-------------|
 | `/` | Your primary notes (requires sign-in) |
 | `/d/:shareToken` | A shared bullet subtree (requires sign-in) |
-| `/pages` | List/create/delete your extra documents (requires sign-in) |
-| `/page/:docId` | One extra document (requires sign-in) |
 | `/docs` | In-app documentation |
 
 ---
