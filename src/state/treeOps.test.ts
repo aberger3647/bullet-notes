@@ -41,6 +41,7 @@ import {
   extractTags,
   collectAllTags,
   deriveDocTitle,
+  clampActionToSharedRoot,
 } from './treeOps';
 
 /** Collect all ids in DFS order — handy for structural assertions. */
@@ -671,3 +672,87 @@ describe('getActionNodeIds', () => {
 function findNodeByIdInTree(tree: BulletNode[], id: string): BulletNode | null {
   return findNodeById(tree, id);
 }
+
+describe('clampActionToSharedRoot', () => {
+  // Single-root shared view: root -> child -> grandchild.
+  const tree = () => [node('root', [node('child', [node('grandchild')])])];
+
+  it('rewrites NEW_SIBLING_BEFORE targeting the root into an APPEND_CHILD', () => {
+    const action: AppAction = { type: 'NEW_SIBLING_BEFORE', beforeId: 'root', newId: 'n' };
+    expect(clampActionToSharedRoot(tree(), action, 'root')).toEqual({
+      type: 'APPEND_CHILD',
+      parentId: 'root',
+      newId: 'n',
+    });
+  });
+
+  it('rewrites NEW_SIBLING_AFTER targeting the root into an APPEND_CHILD', () => {
+    const action: AppAction = { type: 'NEW_SIBLING_AFTER', afterId: 'root', newId: 'n' };
+    expect(clampActionToSharedRoot(tree(), action, 'root')).toEqual({
+      type: 'APPEND_CHILD',
+      parentId: 'root',
+      newId: 'n',
+    });
+  });
+
+  it('leaves NEW_SIBLING_BEFORE/AFTER targeting a non-root node unchanged', () => {
+    const before: AppAction = { type: 'NEW_SIBLING_BEFORE', beforeId: 'child', newId: 'n' };
+    const after: AppAction = { type: 'NEW_SIBLING_AFTER', afterId: 'child', newId: 'n' };
+    expect(clampActionToSharedRoot(tree(), before, 'root')).toEqual(before);
+    expect(clampActionToSharedRoot(tree(), after, 'root')).toEqual(after);
+  });
+
+  it('drops DUPLICATE_NODE / PASTE_SUBTREE targeting the root', () => {
+    const dup: AppAction = { type: 'DUPLICATE_NODE', id: 'root', newId: 'n' };
+    const paste: AppAction = { type: 'PASTE_SUBTREE', afterId: 'root', subtree: node('p'), newId: 'n' };
+    expect(clampActionToSharedRoot(tree(), dup, 'root')).toBeNull();
+    expect(clampActionToSharedRoot(tree(), paste, 'root')).toBeNull();
+  });
+
+  it('leaves DUPLICATE_NODE / PASTE_SUBTREE targeting a non-root node unchanged', () => {
+    const dup: AppAction = { type: 'DUPLICATE_NODE', id: 'child', newId: 'n' };
+    expect(clampActionToSharedRoot(tree(), dup, 'root')).toEqual(dup);
+  });
+
+  it('drops OUTDENT for the root itself and for a direct child of the root', () => {
+    expect(clampActionToSharedRoot(tree(), { type: 'OUTDENT', id: 'root' }, 'root')).toBeNull();
+    expect(clampActionToSharedRoot(tree(), { type: 'OUTDENT', id: 'child' }, 'root')).toBeNull();
+  });
+
+  it('leaves OUTDENT for a grandchild (parent is not the root) unchanged', () => {
+    const action: AppAction = { type: 'OUTDENT', id: 'grandchild' };
+    expect(clampActionToSharedRoot(tree(), action, 'root')).toEqual(action);
+  });
+
+  it('drops INDENT / DELETE_NODE for the root itself', () => {
+    expect(clampActionToSharedRoot(tree(), { type: 'INDENT', id: 'root' }, 'root')).toBeNull();
+    expect(clampActionToSharedRoot(tree(), { type: 'DELETE_NODE', id: 'root' }, 'root')).toBeNull();
+  });
+
+  it('leaves INDENT / DELETE_NODE for a non-root node unchanged', () => {
+    const indent: AppAction = { type: 'INDENT', id: 'child' };
+    const del: AppAction = { type: 'DELETE_NODE', id: 'child' };
+    expect(clampActionToSharedRoot(tree(), indent, 'root')).toEqual(indent);
+    expect(clampActionToSharedRoot(tree(), del, 'root')).toEqual(del);
+  });
+
+  it('drops MOVE_NODE when the root is the node being moved', () => {
+    const action: AppAction = { type: 'MOVE_NODE', activeId: 'root', overId: 'child', nest: false };
+    expect(clampActionToSharedRoot(tree(), action, 'root')).toBeNull();
+  });
+
+  it('drops a non-nesting MOVE_NODE that would reorder something to become a sibling of the root', () => {
+    const action: AppAction = { type: 'MOVE_NODE', activeId: 'grandchild', overId: 'root', nest: false };
+    expect(clampActionToSharedRoot(tree(), action, 'root')).toBeNull();
+  });
+
+  it('allows nesting a node as a child of the root via MOVE_NODE', () => {
+    const action: AppAction = { type: 'MOVE_NODE', activeId: 'grandchild', overId: 'root', nest: true };
+    expect(clampActionToSharedRoot(tree(), action, 'root')).toEqual(action);
+  });
+
+  it('passes through unrelated actions unchanged', () => {
+    const action: AppAction = { type: 'SET_TEXT', id: 'root', text: 'hi' };
+    expect(clampActionToSharedRoot(tree(), action, 'root')).toEqual(action);
+  });
+});

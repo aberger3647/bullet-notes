@@ -17,6 +17,7 @@ import {
   findNodeById,
   extractSharedSubtree,
   getVisibleOrder,
+  clampActionToSharedRoot,
 } from '../state/treeOps';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { toast } from 'sonner';
@@ -272,10 +273,19 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
   const wrappedDispatch = useCallback<Dispatch<AppAction>>(
     (action) => {
       if (isShared && (action.type === 'UNDO' || action.type === 'REDO')) return;
-      dispatch(action);
+      let outgoing = action;
+      if (isShared) {
+        const rootId = treeRef.current[0]?.id;
+        if (rootId) {
+          const clamped = clampActionToSharedRoot(treeRef.current, action, rootId);
+          if (!clamped) return;
+          outgoing = clamped;
+        }
+      }
+      dispatch(outgoing);
       if (isRemoteRef.current) return;
-      if (isShared) broadcastRef.current(action);
-      else if (isLocal) subtreeBroadcastRef.current(action);
+      if (isShared) broadcastRef.current(outgoing);
+      else if (isLocal) subtreeBroadcastRef.current(outgoing);
     },
     [isShared, isLocal],
   );

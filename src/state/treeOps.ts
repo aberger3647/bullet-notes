@@ -500,6 +500,50 @@ export function isUnderSharedRoot(roots: BulletNode[], sharedRootId: string, nod
   return findNodeById([root], nodeId) !== null;
 }
 
+/**
+ * Fences a tree-mutation action to `rootId`'s own subtree, for the shared/collaborator
+ * view where `rootId` must behave as if it has no parent and no siblings (it's really a
+ * specific node inside someone else's full document). Without this, actions that treat
+ * the shared root as an ordinary sibling-swappable node (e.g. "insert a sibling before
+ * the first bullet in view") escape into whatever real position the root occupies —
+ * landing as a new top-level bullet in the owner's document, or flattening the
+ * recipient's own single-root tree into a multi-root one that then gets persisted as
+ * the shared copy. Sibling-insert actions targeting `rootId` are rewritten into an
+ * equivalent child-insert; actions with no safe rewrite are dropped (return null).
+ */
+export function clampActionToSharedRoot(
+  roots: BulletNode[],
+  action: AppAction,
+  rootId: string,
+): AppAction | null {
+  switch (action.type) {
+    case 'NEW_SIBLING_BEFORE':
+      return action.beforeId === rootId
+        ? { type: 'APPEND_CHILD', parentId: rootId, newId: action.newId }
+        : action;
+    case 'NEW_SIBLING_AFTER':
+      return action.afterId === rootId
+        ? { type: 'APPEND_CHILD', parentId: rootId, newId: action.newId }
+        : action;
+    case 'DUPLICATE_NODE':
+      return action.id === rootId ? null : action;
+    case 'PASTE_SUBTREE':
+      return action.afterId === rootId ? null : action;
+    case 'INDENT':
+    case 'OUTDENT':
+    case 'DELETE_NODE':
+      if (action.id === rootId) return null;
+      if (action.type === 'OUTDENT' && locateNode(roots, action.id)?.parent?.id === rootId) return null;
+      return action;
+    case 'MOVE_NODE':
+      if (action.activeId === rootId) return null;
+      if (!action.nest && action.overId === rootId) return null;
+      return action;
+    default:
+      return action;
+  }
+}
+
 /** Extract a shared subtree as a single-root document for save/create. */
 export function extractSharedSubtree(roots: BulletNode[], rootId: string): BulletNode[] {
   const node = findNodeById(roots, rootId);

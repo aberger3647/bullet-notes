@@ -3,6 +3,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import type { AppAction, BulletNode } from '../state/types';
 import {
+  clampActionToSharedRoot,
   collectSharedRoots,
   extractSharedSubtree,
   getActionNodeIds,
@@ -37,6 +38,7 @@ type UseSharedSubtreeSyncOptions = {
 function createChannelBundle(
   root: SharedRoot,
   clientId: string,
+  getTree: () => BulletNode[],
   onRemoteAction: (action: AppAction) => void,
   onSubscribedChange: (token: string, subscribed: boolean) => void,
 ): ChannelBundle {
@@ -59,7 +61,8 @@ function createChannelBundle(
     .on('broadcast', { event: 'action' }, (raw) => {
       const msg = parseBroadcastMessage(raw);
       if (!msg || msg.source === clientId) return;
-      onRemoteAction(msg.action);
+      const clamped = clampActionToSharedRoot(getTree(), msg.action, root.id);
+      if (clamped) onRemoteAction(clamped);
     })
     .subscribe((status) => {
       if (status === 'SUBSCRIBED') {
@@ -161,6 +164,7 @@ export function useSharedSubtreeSync({ tree, enabled, onRemoteAction }: UseShare
       const bundle = createChannelBundle(
         root,
         clientId,
+        () => treeRef.current,
         (action) => onRemoteActionRef.current(action),
         () => {},
       );
