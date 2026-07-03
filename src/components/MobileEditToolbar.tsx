@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { IndentIncrease, IndentDecrease, Check, Users, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAppState } from '../hooks/useAppState';
 import { openShareSheet, shareUrl } from '../lib/shareNode';
 import { findNodeById, locateNode } from '../state/treeOps';
@@ -62,6 +63,10 @@ export function MobileEditToolbar() {
   };
 
   const onDelete = () => {
+    if (loc && !loc.parent && loc.siblings.length === 1) {
+      toast('Add another bullet before deleting this one', { duration: 2000 });
+      return;
+    }
     revokeSharesInSubtree(state.tree, editingBulletId);
     dispatch({ type: 'DELETE_NODE', id: editingBulletId });
   };

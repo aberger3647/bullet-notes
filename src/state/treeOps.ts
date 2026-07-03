@@ -38,6 +38,12 @@ export function findNodeById(roots: BulletNode[], id: string): BulletNode | null
   return locateNode(roots, id)?.node ?? null;
 }
 
+/** True if id is the only top-level bullet in the document (deleting it is a no-op). */
+export function isOnlyTopLevelNode(roots: BulletNode[], id: string): boolean {
+  const loc = locateNode(roots, id);
+  return loc !== null && !loc.parent && loc.siblings.length === 1;
+}
+
 /** Direct children shown for current zoom (invalid ids in path are ignored by trimming). */
 export function getChildrenForZoom(roots: BulletNode[], zoomPath: string[]): BulletNode[] {
   let current: BulletNode[] = roots;

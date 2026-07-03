@@ -25,7 +25,6 @@ export type AppStateContextValue = {
   shareNodeFromGesture: (id: string) => Promise<void>;
   getPendingShareToken: (id: string) => string | undefined;
   completeShareForBullet: (id: string, token: string, result: ShareResult) => void;
-  shareMessage: string | null;
   editingBulletId: string | null;
   editingIndentParentId: string | undefined;
   setEditingBullet: (id: string, indentParentId?: string) => void;

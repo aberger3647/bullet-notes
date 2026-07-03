@@ -5,8 +5,8 @@
 Honeydew is a **single React 19 + Vite + TypeScript SPA** (no local backend). It talks
 directly to a **self-hosted Supabase** (`VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`, provided
 as Cloud Agent secrets and pointing at `https://supabase.csbod.com`). Standard commands live in
-`package.json` (`dev`, `build`, `lint`, `preview`, `migrate`) — use those; the dev server runs on
-port `5173`.
+`package.json` (`dev`, `build`, `lint`, `preview`, `migrate`, `db:migrate`, `gen:types`) — use
+those; the dev server runs on port `5173`.
 
 Non-obvious caveats worth remembering:
 
@@ -29,14 +29,22 @@ Non-obvious caveats worth remembering:
   localStorage (`bullet-notes:v1:expanded` / `bullet-notes:v1:history`) — see `AppStateProvider.tsx`.
   This replaces the old "collapsed by default after reload" behavior.
 - **Migrations**: `postinstall`/`npm run migrate` run `scripts/migrate.mjs`, which no-ops unless
-  `SUPABASE_DB_URL` is set. All of `001_documents.sql` through `006_delete_my_data.sql` are applied
-  to the shared instance (`bullet_notes_schema_migrations` tracks them) — multi-document support,
-  version-history snapshots, view-only share permissions + share management, and delete-my-data are
-  all live. This box has no `SUPABASE_DB_URL`/`DATABASE_URL` reachable from a sandboxed agent
-  environment; migrations were applied by connecting directly to the Postgres container on the
-  Dokploy box (`ssh alex`, `docker exec cf-supabase-dygaax-supabase-db psql -U postgres -d postgres`
-  — local trust auth, no password needed inside the container). See the `dokploy-deploy` skill for
-  that box's other gotchas (compose-stack networking, etc.) before touching it again.
+  `SUPABASE_DB_URL` is set. The deployed Dokploy app has no `SUPABASE_DB_URL`/`DATABASE_URL` in its
+  env (only `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`), so this **always no-ops on a real
+  deploy** — pushing a new migration file does *not* apply it by itself. `npm run db:migrate`
+  (`scripts/apply-migrations.sh`) is the actual way migrations reach the shared instance: it
+  auto-detects whether it's already running on the Supabase/Dokploy host or needs to reach it over
+  `ssh alex` (`scripts/supabase-exec.sh`, shared with `npm run gen:types`), then runs
+  `docker exec cf-supabase-dygaax-supabase-db psql -U postgres -d postgres` (local trust auth, no
+  password needed inside the container). It reuses the same `bullet_notes_schema_migrations` ledger
+  `scripts/migrate.mjs` tracks, so it only applies files not already recorded there — safe to run
+  repeatedly after adding a migration. All of `001_documents.sql` through `007_paginate_shares.sql`
+  are applied to the shared instance this way — multi-document support, version-history snapshots,
+  view-only share permissions + share management, delete-my-data, and paginated share listing are
+  all live. `npm run gen:types` (`scripts/gen-types.sh`) generates
+  `src/database-generated.types.ts` from the same instance the same way, if ever needed. See the
+  `dokploy-deploy` skill for that box's other gotchas (compose-stack networking, etc.) before
+  touching it again.
 - **E2E tests** (`npm run e2e`, Playwright) mock all Supabase network/auth/realtime traffic — see
   `e2e/support/mockSupabase.ts` — so they run without any live backend and are safe for CI. They do
   **not** verify real two-client realtime collaboration (Supabase Realtime's Phoenix-channel protocol

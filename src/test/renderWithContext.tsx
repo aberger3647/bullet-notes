@@ -40,7 +40,6 @@ export function makeContextValue(
     shareNodeFromGesture: vi.fn().mockResolvedValue(undefined),
     getPendingShareToken: vi.fn().mockReturnValue(undefined),
     completeShareForBullet: vi.fn(),
-    shareMessage: null,
     editingBulletId: null,
     editingIndentParentId: undefined,
     setEditingBullet: vi.fn(),

@@ -14,7 +14,7 @@ import { useDocumentTitle } from './hooks/useDocumentTitle';
 import { useVisualViewportBottom } from './hooks/useVisualViewportBottom';
 import { findNodeById, getChildrenForZoom } from './state/treeOps';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Toaster } from '@/components/ui/sonner';
 import { cn } from '@/lib/utils';
 import './App.css';
 
@@ -37,7 +37,6 @@ function Shell() {
     syncStatus,
     otherEditors,
     readOnly,
-    shareMessage,
     editingBulletId,
     selectedIds,
     clearSelection,
@@ -177,15 +176,7 @@ function Shell() {
         <BulletList />
       </main>
 
-      {shareMessage ? (
-        <Badge
-          variant="secondary"
-          className="fixed bottom-22 left-1/2 z-40 -translate-x-1/2 px-3 py-1.5 text-sm shadow-lg"
-          role="status"
-        >
-          {shareMessage}
-        </Badge>
-      ) : null}
+      <Toaster theme={state.settings.theme} position="bottom-center" offset={{ bottom: '5.5rem' }} />
 
       {!readOnly ? (
         <Button

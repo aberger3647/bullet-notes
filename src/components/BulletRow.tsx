@@ -2,9 +2,11 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useEffect, useRef, useState } from 'react';
 import { Users } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAppState } from '../hooks/useAppState';
 import type { BulletNode } from '../state/types';
 import {
+  isOnlyTopLevelNode,
   OUTLINE_CLIPBOARD_MIME,
   parseOutlineClipboardJSON,
   serializeOutlineClipboardJSON,
@@ -197,6 +199,10 @@ export function BulletRow({
   };
 
   const deleteThisBullet = () => {
+    if (isOnlyTopLevelNode(state.tree, node.id)) {
+      toast('Add another bullet before deleting this one', { duration: 2000 });
+      return;
+    }
     revokeSharesInSubtree(state.tree, node.id);
     dispatch({ type: 'DELETE_NODE', id: node.id });
   };

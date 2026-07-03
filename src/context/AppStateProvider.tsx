@@ -19,6 +19,7 @@ import {
   getVisibleOrder,
 } from '../state/treeOps';
 import { isSupabaseConfigured } from '../lib/supabase';
+import { toast } from 'sonner';
 import { openShareSheet, shareUrl, type ShareResult } from '../lib/shareNode';
 import { createSharedDocument, useDocumentSync } from '../sync/useDocumentSync';
 import { useSharedSubtreeSync } from '../sync/useSharedSubtreeSync';
@@ -30,6 +31,7 @@ import { useAuth } from '../hooks/useAuth';
 import { AppStateContext, type AppMode } from './appStateContext';
 import { OutlineLoadingSkeleton } from '../components/OutlineLoadingSkeleton';
 
+const SHARE_TOAST_ID = 'share-toast';
 const STORAGE_KEY = 'bullet-notes:v1';
 const EXPANDED_STORAGE_KEY = 'bullet-notes:v1:expanded';
 const HISTORY_STORAGE_KEY = 'bullet-notes:v1:history';
@@ -115,10 +117,8 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(() =>
     readExpandedFromStorage(expandedStorageKey(mode, shareToken)),
   );
-  const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [editingBulletId, setEditingBulletId] = useState<string | null>(null);
   const [editingIndentParentId, setEditingIndentParentId] = useState<string | undefined>(undefined);
-  const shareMessageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingShareTokens = useRef(new Map<string, string>());
   const pendingSharePromises = useRef(new Map<string, Promise<string>>());
   const isRemoteRef = useRef(false);
@@ -280,27 +280,20 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
     [isShared, isLocal],
   );
 
-  const showShareToast = useCallback((msg: string | null, durationMs = 2500) => {
-    if (shareMessageTimer.current) clearTimeout(shareMessageTimer.current);
-    setShareMessage(msg);
-    if (msg) {
-      shareMessageTimer.current = setTimeout(() => setShareMessage(null), durationMs);
+  const commitShareResult = useCallback((id: string, token: string, result: ShareResult) => {
+    if (result === 'shared' || result === 'copied') {
+      const node = findNodeById(treeRef.current, id);
+      if (node && !node.shareToken) {
+        dispatch({ type: 'SET_NODE_SHARE', id, shareToken: token });
+      }
+      pendingShareTokens.current.delete(id);
+      if (result === 'copied') {
+        toast('Link copied to clipboard', { id: SHARE_TOAST_ID });
+      } else {
+        toast.dismiss(SHARE_TOAST_ID);
+      }
     }
   }, []);
-
-  const commitShareResult = useCallback(
-    (id: string, token: string, result: ShareResult) => {
-      if (result === 'shared' || result === 'copied') {
-        const node = findNodeById(treeRef.current, id);
-        if (node && !node.shareToken) {
-          dispatch({ type: 'SET_NODE_SHARE', id, shareToken: token });
-        }
-        pendingShareTokens.current.delete(id);
-        showShareToast(result === 'copied' ? 'Link copied to clipboard' : null);
-      }
-    },
-    [showShareToast],
-  );
 
   const ensureShareToken = useCallback(async (id: string): Promise<string> => {
     const node = findNodeById(treeRef.current, id);
@@ -344,7 +337,10 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
 
   const shareNode = useCallback(async (id: string) => {
     if (!isSupabaseConfigured()) {
-      showShareToast('Sharing is not configured. Add Supabase env vars and rebuild.', 3000);
+      toast('Sharing is not configured. Add Supabase env vars and rebuild.', {
+        id: SHARE_TOAST_ID,
+        duration: 3000,
+      });
       return;
     }
     const node = findNodeById(treeRef.current, id);
@@ -354,14 +350,17 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
       const token = await ensureShareToken(id);
       await openShareForBullet(id, token);
     } catch {
-      showShareToast('Could not share. Try again.', 3000);
+      toast('Could not share. Try again.', { id: SHARE_TOAST_ID, duration: 3000 });
     }
-  }, [ensureShareToken, openShareForBullet, showShareToast]);
+  }, [ensureShareToken, openShareForBullet]);
 
   const shareNodeFromGesture = useCallback(
     async (id: string) => {
       if (!isSupabaseConfigured()) {
-        showShareToast('Sharing is not configured. Add Supabase env vars and rebuild.', 3000);
+        toast('Sharing is not configured. Add Supabase env vars and rebuild.', {
+          id: SHARE_TOAST_ID,
+          duration: 3000,
+        });
         return;
       }
       const node = findNodeById(treeRef.current, id);
@@ -372,20 +371,20 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
         try {
           await openShareForBullet(id, token);
         } catch {
-          showShareToast('Could not share. Try again.', 3000);
+          toast('Could not share. Try again.', { id: SHARE_TOAST_ID, duration: 3000 });
         }
         return;
       }
 
-      showShareToast('Preparing link…', 3000);
+      toast('Preparing link…', { id: SHARE_TOAST_ID, duration: 3000 });
       try {
         const prepared = await ensureShareToken(id);
         await openShareForBullet(id, prepared);
       } catch {
-        showShareToast('Could not share. Try again.', 3000);
+        toast('Could not share. Try again.', { id: SHARE_TOAST_ID, duration: 3000 });
       }
     },
-    [ensureShareToken, getPendingShareToken, openShareForBullet, showShareToast],
+    [ensureShareToken, getPendingShareToken, openShareForBullet],
   );
 
   const toggleExpand = useCallback((id: string) => {
@@ -540,7 +539,6 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
       shareNodeFromGesture,
       getPendingShareToken,
       completeShareForBullet: commitShareResult,
-      shareMessage,
       editingBulletId,
       editingIndentParentId,
       setEditingBullet,
@@ -572,7 +570,6 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
       shareNodeFromGesture,
       getPendingShareToken,
       commitShareResult,
-      shareMessage,
       editingBulletId,
       editingIndentParentId,
       setEditingBullet,

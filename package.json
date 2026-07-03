@@ -8,6 +8,8 @@
     "build": "tsc -b && vite build",
     "migrate": "node scripts/migrate.mjs",
     "postinstall": "node scripts/migrate.mjs",
+    "db:migrate": "bash scripts/apply-migrations.sh",
+    "gen:types": "bash scripts/gen-types.sh",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
