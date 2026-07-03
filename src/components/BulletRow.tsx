@@ -10,6 +10,7 @@ import {
   serializeOutlineClipboardJSON,
   serializeOutlineClipboardText,
 } from '../state/treeOps';
+import { revokeSharesInSubtree } from '../sync/sharesApi';
 import { colorForClientId } from '../lib/presenceColor';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -196,6 +197,7 @@ export function BulletRow({
   };
 
   const deleteThisBullet = () => {
+    revokeSharesInSubtree(state.tree, node.id);
     dispatch({ type: 'DELETE_NODE', id: node.id });
   };
 
@@ -246,7 +248,7 @@ export function BulletRow({
       if (el && isCaretAtStart(el)) {
         if (node.text === '' && node.children.length === 0) {
           e.preventDefault();
-          dispatch({ type: 'DELETE_NODE', id: node.id });
+          deleteThisBullet();
           return;
         }
         if (node.text !== '' && prevVisibleId) {

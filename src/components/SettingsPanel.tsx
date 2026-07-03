@@ -120,7 +120,10 @@ export function SettingsPanel({ open, onClose, searchFocusToken }: Props) {
   const {
     shares,
     loading: sharesLoading,
+    loadingMore: sharesLoadingMore,
+    hasMore: sharesHasMore,
     error: sharesError,
+    loadMore: loadMoreShares,
     togglePermission,
     revoke,
   } = useMySharesList(open && !isShared);
@@ -361,6 +364,18 @@ export function SettingsPanel({ open, onClose, searchFocusToken }: Props) {
                     </ResultRow>
                   ))}
                 </ul>
+                {sharesHasMore ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 w-full"
+                    disabled={sharesLoadingMore}
+                    onClick={() => void loadMoreShares()}
+                  >
+                    {sharesLoadingMore ? 'Loading…' : 'Load more'}
+                  </Button>
+                ) : null}
               </section>
             </>
           ) : null}

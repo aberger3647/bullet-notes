@@ -3,6 +3,7 @@ import { IndentIncrease, IndentDecrease, Check, Users, Trash2 } from 'lucide-rea
 import { useAppState } from '../hooks/useAppState';
 import { openShareSheet, shareUrl } from '../lib/shareNode';
 import { findNodeById, locateNode } from '../state/treeOps';
+import { revokeSharesInSubtree } from '../sync/sharesApi';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -61,6 +62,7 @@ export function MobileEditToolbar() {
   };
 
   const onDelete = () => {
+    revokeSharesInSubtree(state.tree, editingBulletId);
     dispatch({ type: 'DELETE_NODE', id: editingBulletId });
   };
 

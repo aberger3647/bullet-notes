@@ -5,12 +5,16 @@ import { listMyShares, revokeShare, setSharePermission, type ShareMeta } from '.
 export function useMySharesList(enabled: boolean) {
   const [shares, setShares] = useState<ShareMeta[]>([]);
   const [loading, setLoading] = useState(enabled);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!enabled || !isSupabaseConfigured()) return;
     try {
-      setShares(await listMyShares());
+      const { shares: page, hasMore: more } = await listMyShares(0);
+      setShares(page);
+      setHasMore(more);
       setError(false);
     } catch {
       setError(true);
@@ -24,9 +28,10 @@ export function useMySharesList(enabled: boolean) {
     let cancelled = false;
     void (async () => {
       try {
-        const list = await listMyShares();
+        const { shares: page, hasMore: more } = await listMyShares(0);
         if (!cancelled) {
-          setShares(list);
+          setShares(page);
+          setHasMore(more);
           setError(false);
         }
       } catch {
@@ -39,6 +44,20 @@ export function useMySharesList(enabled: boolean) {
       cancelled = true;
     };
   }, [enabled]);
+
+  const loadMore = useCallback(async () => {
+    if (!enabled || !isSupabaseConfigured() || loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const { shares: page, hasMore: more } = await listMyShares(shares.length);
+      setShares((prev) => [...prev, ...page]);
+      setHasMore(more);
+    } catch {
+      setError(true);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [enabled, loadingMore, hasMore, shares.length]);
 
   const togglePermission = useCallback(
     async (shareToken: string, next: 'edit' | 'view') => {
@@ -56,5 +75,5 @@ export function useMySharesList(enabled: boolean) {
     [refresh],
   );
 
-  return { shares, loading, error, refresh, togglePermission, revoke };
+  return { shares, loading, loadingMore, hasMore, error, refresh, loadMore, togglePermission, revoke };
 }
