@@ -1,4 +1,4 @@
-import type { AppAction, AppState, Snapshot } from './types';
+import type { AppAction, AppState, FocusCaret, Snapshot } from './types';
 import { MAX_HISTORY } from './types';
 import {
   createNode,
@@ -132,11 +132,15 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       if (!loc) return state;
       // Keep at least one bullet in the document.
       if (!loc.parent && loc.siblings.length === 1) return state;
-      const focusTarget = loc.index > 0 ? loc.siblings[loc.index - 1]!.id : loc.parent?.id ?? null;
+      const focusTarget =
+        loc.index > 0
+          ? loc.siblings[loc.index - 1]!.id
+          : loc.parent?.id ?? loc.siblings[loc.index + 1]?.id ?? null;
+      const focusCaret: FocusCaret = loc.index > 0 || loc.parent ? 'end' : { offset: 0 };
       const nextTree = removeNode(state.tree, action.id);
       if (nextTree === state.tree) return state;
       const zoomPath = sanitizeZoomPath(nextTree, state.zoomPath);
-      return withCommit(state, { tree: nextTree, zoomPath, focusedId: focusTarget, focusCaret: 'end' });
+      return withCommit(state, { tree: nextTree, zoomPath, focusedId: focusTarget, focusCaret });
     }
     case 'MERGE_WITH_PREVIOUS': {
       if (action.id === action.targetId) return state;

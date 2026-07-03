@@ -184,6 +184,14 @@ describe('DELETE_NODE', () => {
     expect(next.history.past).toHaveLength(1);
   });
 
+  it('focuses the next sibling when deleting the first top-level bullet', () => {
+    const s = stateWith([node('a'), node('b')]);
+    const next = appReducer(s, { type: 'DELETE_NODE', id: 'a' });
+    expect(next.tree.map((n) => n.id)).toEqual(['b']);
+    expect(next.focusedId).toBe('b');
+    expect(next.focusCaret).toEqual({ offset: 0 });
+  });
+
   it('focuses the parent when deleting a first child', () => {
     const s = stateWith([node('a', [node('a1'), node('a2')])]);
     const next = appReducer(s, { type: 'DELETE_NODE', id: 'a1' });
