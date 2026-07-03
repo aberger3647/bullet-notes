@@ -5,6 +5,8 @@ import { SettingsPanel } from './SettingsPanel';
 import { renderWithContext, makeState } from '../test/renderWithContext';
 import { node } from '../test/factories';
 import type { Snapshot } from '../state/types';
+import type { RestoredDocument, SnapshotMeta } from '../sync/snapshotApi';
+import type { ShareMeta } from '../sync/sharesApi';
 
 const signOutMock = vi.fn().mockResolvedValue(undefined);
 vi.mock('../hooks/useAuth', () => ({
@@ -28,8 +30,8 @@ const restoreSnapshotMock = vi.fn().mockResolvedValue({
   tree: [{ id: 'restored', text: 'restored', completed: false, children: [] }],
   zoom_path: [],
   settings: { hideCompleted: false, theme: 'light' },
-});
-let snapshotsState: { snapshots: Array<{ id: string; created_at: string }>; loading: boolean } = {
+} satisfies RestoredDocument);
+let snapshotsState: { snapshots: SnapshotMeta[]; loading: boolean } = {
   snapshots: [],
   loading: false,
 };
@@ -46,7 +48,7 @@ vi.mock('../sync/useSnapshotsList', () => ({
 const togglePermissionMock = vi.fn().mockResolvedValue(undefined);
 const revokeShareMock = vi.fn().mockResolvedValue(undefined);
 let sharesState: {
-  shares: Array<{ id: string; share_token: string; updated_at: string; permission: 'edit' | 'view'; revoked: boolean }>;
+  shares: ShareMeta[];
   loading: boolean;
   error?: boolean;
 } = { shares: [], loading: false, error: false };
@@ -163,7 +165,14 @@ describe('SettingsPanel', () => {
   it('lists my shared links with permission toggle and revoke', () => {
     sharesState = {
       shares: [
-        { id: '1', share_token: 'tok-123', updated_at: '2026-06-30T12:00:00Z', permission: 'edit', revoked: false },
+        {
+          id: '1',
+          share_token: 'tok-123',
+          user_id: 'user-1',
+          updated_at: '2026-06-30T12:00:00Z',
+          permission: 'edit',
+          revoked: false,
+        },
       ],
       loading: false,
     };
@@ -175,7 +184,14 @@ describe('SettingsPanel', () => {
   it('toggles a share to view-only', async () => {
     sharesState = {
       shares: [
-        { id: '1', share_token: 'tok-123', updated_at: '2026-06-30T12:00:00Z', permission: 'edit', revoked: false },
+        {
+          id: '1',
+          share_token: 'tok-123',
+          user_id: 'user-1',
+          updated_at: '2026-06-30T12:00:00Z',
+          permission: 'edit',
+          revoked: false,
+        },
       ],
       loading: false,
     };
@@ -187,7 +203,14 @@ describe('SettingsPanel', () => {
   it('revokes a share after confirmation', async () => {
     sharesState = {
       shares: [
-        { id: '1', share_token: 'tok-123', updated_at: '2026-06-30T12:00:00Z', permission: 'edit', revoked: false },
+        {
+          id: '1',
+          share_token: 'tok-123',
+          user_id: 'user-1',
+          updated_at: '2026-06-30T12:00:00Z',
+          permission: 'edit',
+          revoked: false,
+        },
       ],
       loading: false,
     };

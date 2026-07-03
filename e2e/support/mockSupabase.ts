@@ -1,4 +1,7 @@
 import type { Page } from '@playwright/test';
+import type { BulletNode } from '../../src/state/types';
+import type { UserDocumentRow } from '../../src/sync/userDocumentApi';
+import type { DocumentRow } from '../../src/sync/documentApi';
 
 const FAKE_USER = {
   id: '00000000-0000-0000-0000-000000000001',
@@ -49,30 +52,27 @@ export async function mockAuthenticatedSession(page: Page) {
   });
 }
 
-export function makeLeaf(text: string, id = 'e2e-root') {
+export function makeLeaf(text: string, id = 'e2e-root'): BulletNode {
   return { id, text, completed: false, children: [] };
 }
 
 /** Mocks the primary (local) document RPCs so the editor loads without a real backend. */
-export async function mockUserDocument(page: Page, initialTree: unknown[] = [makeLeaf('')]) {
+export async function mockUserDocument(page: Page, initialTree: BulletNode[] = [makeLeaf('')]) {
   let tree = initialTree;
 
   await page.route('**/rest/v1/rpc/bullet_notes_get_user_document', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        user_id: FAKE_USER.id,
-        tree,
-        zoom_path: [],
-        settings: { hideCompleted: false, theme: 'light' },
-        updated_at: new Date().toISOString(),
-      }),
-    });
+    const body: UserDocumentRow = {
+      user_id: FAKE_USER.id,
+      tree,
+      zoom_path: [],
+      settings: { hideCompleted: false, theme: 'light' },
+      updated_at: new Date().toISOString(),
+    };
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   });
 
   await page.route('**/rest/v1/rpc/bullet_notes_save_user_document', async (route) => {
-    const body = route.request().postDataJSON() as { p_tree?: unknown[] };
+    const body = route.request().postDataJSON() as { p_tree?: BulletNode[] };
     if (body?.p_tree) tree = body.p_tree;
     await route.fulfill({ status: 200, contentType: 'application/json', body: 'null' });
   });
@@ -82,28 +82,26 @@ export async function mockUserDocument(page: Page, initialTree: unknown[] = [mak
 export async function mockSharedDocument(
   page: Page,
   shareToken: string,
-  initialTree: unknown[],
+  initialTree: BulletNode[],
   opts: { permission?: 'edit' | 'view' } = {},
 ) {
   let tree = initialTree;
 
   await page.route('**/rest/v1/rpc/bullet_notes_get_document', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        id: 'e2e-doc-id',
-        share_token: shareToken,
-        tree,
-        updated_at: new Date().toISOString(),
-        permission: opts.permission ?? 'edit',
-        revoked: false,
-      }),
-    });
+    const body: DocumentRow = {
+      id: 'e2e-doc-id',
+      share_token: shareToken,
+      user_id: FAKE_USER.id,
+      tree,
+      updated_at: new Date().toISOString(),
+      permission: opts.permission ?? 'edit',
+      revoked: false,
+    };
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   });
 
   await page.route('**/rest/v1/rpc/bullet_notes_save_document', async (route) => {
-    const body = route.request().postDataJSON() as { p_tree?: unknown[] };
+    const body = route.request().postDataJSON() as { p_tree?: BulletNode[] };
     if (body?.p_tree) tree = body.p_tree;
     await route.fulfill({ status: 200, contentType: 'application/json', body: 'null' });
   });
