@@ -1,14 +1,16 @@
 import { supabase } from '../lib/supabase';
 import { collectSharedRoots, findNodeById } from '../state/treeOps';
+import type { Tables } from '../database-generated.types';
 import type { BulletNode } from '../state/types';
 import type { DocumentRow } from './documentApi';
 
 export type ShareMeta = Omit<DocumentRow, 'tree'>;
 
-export type ShareRecipient = {
+export type ShareRecipient = Pick<
+  Tables<'bullet_notes_document_recipients'>,
+  'first_opened_at' | 'last_opened_at'
+> & {
   recipient_name: string | null;
-  first_opened_at: string;
-  last_opened_at: string;
 };
 
 export const SHARES_PAGE_SIZE = 20;

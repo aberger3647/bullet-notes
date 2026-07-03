@@ -1,11 +1,12 @@
 import { supabase } from '../lib/supabase';
+import type { Tables } from '../database-generated.types';
 
-export type SharedWithMeItem = {
-  share_token: string;
+export type SharedWithMeItem = Pick<
+  Tables<'bullet_notes_documents'>,
+  'share_token' | 'revoked' | 'updated_at'
+> & {
   permission: 'edit' | 'view';
-  revoked: boolean;
-  updated_at: string;
-  last_opened_at: string;
+  last_opened_at: Tables<'bullet_notes_document_recipients'>['last_opened_at'];
   owner_name: string | null;
 };
 
