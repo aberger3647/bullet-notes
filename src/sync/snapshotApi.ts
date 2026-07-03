@@ -1,13 +1,10 @@
 import { supabase } from '../lib/supabase';
-import type { BulletNode, Settings } from '../state/types';
+import type { Tables } from '../database-generated.types';
+import type { UserDocumentRow } from './userDocumentApi';
 
-export type SnapshotMeta = { id: string; created_at: string };
+export type SnapshotMeta = Pick<Tables<'bullet_notes_user_document_snapshots'>, 'id' | 'created_at'>;
 
-export type RestoredDocument = {
-  tree: BulletNode[];
-  zoom_path: string[];
-  settings: Settings;
-};
+export type RestoredDocument = Pick<UserDocumentRow, 'tree' | 'zoom_path' | 'settings'>;
 
 export async function takeSnapshot(): Promise<void> {
   const { error } = await supabase.rpc('bullet_notes_snapshot_user_document');

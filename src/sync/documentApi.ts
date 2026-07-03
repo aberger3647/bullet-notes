@@ -1,14 +1,11 @@
 import { supabase } from '../lib/supabase';
+import type { Tables } from '../database-generated.types';
 import type { BulletNode } from '../state/types';
 import type { BroadcastMessage } from './syncTypes';
 
-export type DocumentRow = {
-  id: string;
-  share_token: string;
+export type DocumentRow = Omit<Tables<'bullet_notes_documents'>, 'tree' | 'permission'> & {
   tree: BulletNode[];
-  updated_at: string;
-  permission?: 'edit' | 'view';
-  revoked?: boolean;
+  permission: 'edit' | 'view';
 };
 
 export function parseBroadcastMessage(raw: unknown): BroadcastMessage | null {
@@ -25,7 +22,7 @@ export function parseBroadcastMessage(raw: unknown): BroadcastMessage | null {
 export async function createSharedDocument(tree: BulletNode[]): Promise<string> {
   const { data, error } = await supabase.rpc('bullet_notes_create_document', { p_tree: tree });
   if (error) throw error;
-  return data as string;
+  return data;
 }
 
 export async function fetchDocument(shareToken: string): Promise<DocumentRow | null> {

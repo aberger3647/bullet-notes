@@ -1,14 +1,9 @@
 import { supabase } from '../lib/supabase';
 import { collectSharedRoots, findNodeById } from '../state/treeOps';
 import type { BulletNode } from '../state/types';
+import type { DocumentRow } from './documentApi';
 
-export type ShareMeta = {
-  id: string;
-  share_token: string;
-  updated_at: string;
-  permission: 'edit' | 'view';
-  revoked: boolean;
-};
+export type ShareMeta = Omit<DocumentRow, 'tree'>;
 
 export const SHARES_PAGE_SIZE = 20;
 

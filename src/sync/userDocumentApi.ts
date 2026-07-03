@@ -1,12 +1,11 @@
 import { supabase } from '../lib/supabase';
+import type { Tables } from '../database-generated.types';
 import type { BulletNode, PersistedState, Settings } from '../state/types';
 
-export type UserDocumentRow = {
-  user_id: string;
+export type UserDocumentRow = Omit<Tables<'bullet_notes_user_documents'>, 'tree' | 'zoom_path' | 'settings'> & {
   tree: BulletNode[];
   zoom_path: string[];
   settings: Settings;
-  updated_at: string;
 };
 
 export async function fetchUserDocument(): Promise<UserDocumentRow | null> {
