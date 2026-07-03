@@ -112,6 +112,34 @@ export type Database = {
         }
         Relationships: []
       }
+      bullet_notes_document_recipients: {
+        Row: {
+          document_id: string
+          first_opened_at: string
+          last_opened_at: string
+          recipient_id: string
+        }
+        Insert: {
+          document_id: string
+          first_opened_at?: string
+          last_opened_at?: string
+          recipient_id: string
+        }
+        Update: {
+          document_id?: string
+          first_opened_at?: string
+          last_opened_at?: string
+          recipient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bullet_notes_document_recipients_document_id_fkey"
+            columns: ["document_id"]
+            referencedRelation: "bullet_notes_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bullet_notes_documents: {
         Row: {
           id: string
@@ -688,7 +716,19 @@ export type Database = {
         Args: { p_limit?: number; p_offset?: number }
         Returns: Json
       }
+      bullet_notes_list_share_recipients: {
+        Args: { p_share_token: string }
+        Returns: Json
+      }
+      bullet_notes_list_shared_with_me: {
+        Args: { p_limit?: number; p_offset?: number }
+        Returns: Json
+      }
       bullet_notes_list_snapshots: { Args: never; Returns: Json }
+      bullet_notes_record_share_open: {
+        Args: { p_share_token: string }
+        Returns: undefined
+      }
       bullet_notes_restore_snapshot: { Args: { p_id: string }; Returns: Json }
       bullet_notes_revoke_share: {
         Args: { p_share_token: string }

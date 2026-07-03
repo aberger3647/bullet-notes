@@ -9,7 +9,8 @@ import { exportToJSON, exportToMarkdown, exportToPlainText } from '../lib/export
 import { parseImportedOutline } from '../lib/importOutline';
 import { useSnapshotsList } from '../sync/useSnapshotsList';
 import { useMySharesList } from '../sync/useMySharesList';
-import { listRevokedShareTokens } from '../sync/sharesApi';
+import { useSharedWithMeList } from '../sync/useSharedWithMeList';
+import { listRevokedShareTokens, listShareRecipients, type ShareRecipient } from '../sync/sharesApi';
 import { clearRevokedShareTokens } from '../state/treeOps';
 import { updateProfileName } from '../sync/accountApi';
 import { SearchSection } from './SearchSection';
@@ -156,6 +157,33 @@ export function SettingsPanel({ open, onClose, searchFocusToken }: Props) {
     void revoke(shareToken).catch(() => {
       toast.error('Could not revoke this share. Try again.');
     });
+  };
+
+  const [viewRecipientsToken, setViewRecipientsToken] = useState<string | null>(null);
+  const [recipients, setRecipients] = useState<ShareRecipient[]>([]);
+  const [recipientsLoading, setRecipientsLoading] = useState(false);
+
+  const onViewRecipients = (shareToken: string) => {
+    setViewRecipientsToken(shareToken);
+    setRecipientsLoading(true);
+    void listShareRecipients(shareToken)
+      .then(setRecipients)
+      .catch(() => toast.error('Could not load who viewed this share. Try again.'))
+      .finally(() => setRecipientsLoading(false));
+  };
+
+  const {
+    items: sharedWithMe,
+    loading: sharedWithMeLoading,
+    loadingMore: sharedWithMeLoadingMore,
+    hasMore: sharedWithMeHasMore,
+    error: sharedWithMeError,
+    loadMore: loadMoreSharedWithMe,
+  } = useSharedWithMeList(open && !isShared);
+
+  const onOpenSharedWithMe = (shareToken: string) => {
+    onClose();
+    navigate(`/d/${shareToken}`);
   };
 
   return (
@@ -374,26 +402,36 @@ export function SettingsPanel({ open, onClose, searchFocusToken }: Props) {
                         <span className="text-sm">
                           {share.revoked ? 'Revoked' : share.permission === 'view' ? 'View-only' : 'Editable'}
                         </span>
-                        {!share.revoked ? (
-                          <div className="flex gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => onToggleSharePermission(share.share_token, share.permission)}
-                            >
-                              {share.permission === 'edit' ? 'Make view-only' : 'Make editable'}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setRevokeTargetToken(share.share_token)}
-                            >
-                              Revoke
-                            </Button>
-                          </div>
-                        ) : null}
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onViewRecipients(share.share_token)}
+                          >
+                            Viewed by
+                          </Button>
+                          {!share.revoked ? (
+                            <>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => onToggleSharePermission(share.share_token, share.permission)}
+                              >
+                                {share.permission === 'edit' ? 'Make view-only' : 'Make editable'}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setRevokeTargetToken(share.share_token)}
+                              >
+                                Revoke
+                              </Button>
+                            </>
+                          ) : null}
+                        </div>
                       </ResultRow>
                     ))}
                   </ul>
@@ -407,6 +445,48 @@ export function SettingsPanel({ open, onClose, searchFocusToken }: Props) {
                       onClick={() => void loadMoreShares()}
                     >
                       {sharesLoadingMore ? 'Loading…' : 'Load more'}
+                    </Button>
+                  ) : null}
+                </section>
+
+                <Separator className="my-4" />
+
+                <section>
+                  <SectionHeading>Shared with me</SectionHeading>
+                  {sharedWithMeLoading ? <ListSkeleton rows={2} /> : null}
+                  {!sharedWithMeLoading && sharedWithMeError ? (
+                    <p className="text-sm text-destructive">Could not load notes shared with you. Try again.</p>
+                  ) : null}
+                  {!sharedWithMeLoading && !sharedWithMeError && sharedWithMe.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No one has shared a note with you yet.</p>
+                  ) : null}
+                  <ul className="rounded-lg border" role="listbox" aria-label="Shared with me">
+                    {sharedWithMe.map((item) => (
+                      <ResultRow key={item.share_token}>
+                        <span className="text-sm">
+                          {item.owner_name ?? 'Someone'} · {item.permission === 'view' ? 'View-only' : 'Editable'}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onOpenSharedWithMe(item.share_token)}
+                        >
+                          Open
+                        </Button>
+                      </ResultRow>
+                    ))}
+                  </ul>
+                  {sharedWithMeHasMore ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-2 w-full"
+                      disabled={sharedWithMeLoadingMore}
+                      onClick={() => void loadMoreSharedWithMe()}
+                    >
+                      {sharedWithMeLoadingMore ? 'Loading…' : 'Load more'}
                     </Button>
                   ) : null}
                 </section>
@@ -479,6 +559,30 @@ export function SettingsPanel({ open, onClose, searchFocusToken }: Props) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={viewRecipientsToken !== null} onOpenChange={(next) => !next && setViewRecipientsToken(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Viewed by</DialogTitle>
+          </DialogHeader>
+          {recipientsLoading ? <ListSkeleton rows={2} /> : null}
+          {!recipientsLoading && recipients.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No one has opened this link yet.</p>
+          ) : null}
+          {!recipientsLoading && recipients.length > 0 ? (
+            <ul className="rounded-lg border" role="listbox" aria-label="Viewed by">
+              {recipients.map((r, i) => (
+                <ResultRow key={i}>
+                  <span className="text-sm">{r.recipient_name ?? 'Someone'}</span>
+                  <span className="text-xs text-muted-foreground">
+                    Last opened {new Date(r.last_opened_at).toLocaleString()}
+                  </span>
+                </ResultRow>
+              ))}
+            </ul>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

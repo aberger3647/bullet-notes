@@ -5,7 +5,21 @@ import type { DocumentRow } from './documentApi';
 
 export type ShareMeta = Omit<DocumentRow, 'tree'>;
 
+export type ShareRecipient = {
+  recipient_name: string | null;
+  first_opened_at: string;
+  last_opened_at: string;
+};
+
 export const SHARES_PAGE_SIZE = 20;
+
+export async function listShareRecipients(shareToken: string): Promise<ShareRecipient[]> {
+  const { data, error } = await supabase.rpc('bullet_notes_list_share_recipients', {
+    p_share_token: shareToken,
+  });
+  if (error) throw error;
+  return (data as ShareRecipient[] | null) ?? [];
+}
 
 export async function listMyShares(
   offset = 0,

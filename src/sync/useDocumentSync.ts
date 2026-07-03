@@ -3,6 +3,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import type { AppAction, BulletNode } from '../state/types';
 import { fetchDocument, parseBroadcastMessage, persistDocument } from './documentApi';
+import { recordShareOpen } from './sharedWithMeApi';
 import {
   isSyncableAction,
   SAVE_DEBOUNCE_MS,
@@ -164,6 +165,7 @@ export function useDocumentSync({
         onHydrateRef.current(doc.tree);
         setPermission(doc.permission ?? 'edit');
         setHydrated(true);
+        void recordShareOpen(shareToken).catch(() => {});
       } catch {
         if (!cancelled) setStatus('error');
       }
