@@ -516,6 +516,50 @@ export function setNodeShareToken(roots: BulletNode[], id: string, shareToken: s
   return replaceSiblings(roots, loc.siblings, siblings);
 }
 
+function stripShareToken(node: BulletNode): BulletNode {
+  if (node.shareToken === undefined) return node;
+  return { id: node.id, text: node.text, completed: node.completed, children: node.children };
+}
+
+function clearNodeShareToken(roots: BulletNode[], id: string): BulletNode[] {
+  const loc = locateNode(roots, id);
+  if (!loc || loc.node.shareToken === undefined) return roots;
+  const siblings = [...loc.siblings];
+  siblings[loc.index] = stripShareToken(loc.node);
+  return replaceSiblings(roots, loc.siblings, siblings);
+}
+
+/**
+ * Clear shareToken from `id` and every shared descendant beneath it (immutable).
+ * Called before delete so an undo doesn't resurrect a share link that was just
+ * revoked server-side.
+ */
+export function clearShareTokensInSubtree(roots: BulletNode[], id: string): BulletNode[] {
+  const node = findNodeById(roots, id);
+  if (!node) return roots;
+  let next = roots;
+  for (const shared of collectSharedRoots([node])) {
+    next = clearNodeShareToken(next, shared.id);
+  }
+  return next;
+}
+
+/**
+ * Clear shareToken from any node whose token is in `revokedTokens` (immutable).
+ * Used after a version-history restore so a token captured before a revoke
+ * doesn't resurrect a dead share link in the UI.
+ */
+export function clearRevokedShareTokens(roots: BulletNode[], revokedTokens: Set<string>): BulletNode[] {
+  if (revokedTokens.size === 0) return roots;
+  const strip = (node: BulletNode): BulletNode => {
+    const children = node.children.map(strip);
+    const stripped =
+      node.shareToken !== undefined && revokedTokens.has(node.shareToken) ? stripShareToken(node) : node;
+    return children === node.children && stripped === node ? node : { ...stripped, children };
+  };
+  return roots.map(strip);
+}
+
 /** Custom clipboard MIME type used to round-trip a copied subtree (structure + text) between bullets. */
 export const OUTLINE_CLIPBOARD_MIME = 'application/x-bullet-notes-outline';
 

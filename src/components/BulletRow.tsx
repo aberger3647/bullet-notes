@@ -15,6 +15,7 @@ import {
 import { revokeSharesInSubtree } from '../sync/sharesApi';
 import { colorForClientId } from '../lib/presenceColor';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 const SWIPE_REVEAL_MAX = -88;
@@ -204,6 +205,7 @@ export function BulletRow({
       return;
     }
     revokeSharesInSubtree(state.tree, node.id);
+    dispatch({ type: 'CLEAR_NODE_SHARES', id: node.id });
     dispatch({ type: 'DELETE_NODE', id: node.id });
   };
 
@@ -460,14 +462,14 @@ export function BulletRow({
       {editors.length > 0 ? (
         <span className="presence-badges" aria-hidden={false}>
           {editors.map((p) => (
-            <span
-              key={p.clientId}
-              className="presence-badge"
-              style={{ backgroundColor: colorForClientId(p.clientId) }}
-              title={`${p.displayName} is editing this bullet`}
-            >
-              {p.displayName}
-            </span>
+            <Tooltip key={p.clientId}>
+              <TooltipTrigger asChild>
+                <span className="presence-badge" style={{ backgroundColor: colorForClientId(p.clientId) }}>
+                  {p.displayName}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{`${p.displayName} is editing this bullet`}</TooltipContent>
+            </Tooltip>
           ))}
         </span>
       ) : null}

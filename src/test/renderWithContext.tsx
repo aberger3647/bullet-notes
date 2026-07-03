@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 import { AppStateContext, type AppStateContextValue } from '../context/appStateContext';
 import type { AppState, BulletNode } from '../state/types';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 export function makeState(tree: BulletNode[] = [], extra: Partial<AppState> = {}): AppState {
   return {
@@ -60,7 +61,9 @@ export function renderWithContext(ui: ReactElement, overrides: Partial<AppStateC
   const value = makeContextValue(overrides);
   const wrapper = ({ children }: { children: ReactNode }) => (
     <MemoryRouter>
-      <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>
+      <AppStateContext.Provider value={value}>
+        <TooltipProvider>{children}</TooltipProvider>
+      </AppStateContext.Provider>
     </MemoryRouter>
   );
   const utils = render(ui, { wrapper });

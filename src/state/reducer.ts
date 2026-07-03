@@ -20,6 +20,7 @@ import {
   getZoomPathToNode,
   setNodeText,
   setNodeShareToken,
+  clearShareTokensInSubtree,
   toggleComplete,
   setNodesCompleted,
   indentNodes,
@@ -193,6 +194,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     }
     case 'SET_NODE_SHARE': {
       const nextTree = setNodeShareToken(state.tree, action.id, action.shareToken);
+      if (nextTree === state.tree) return state;
+      return { ...state, tree: nextTree };
+    }
+    case 'CLEAR_NODE_SHARES': {
+      const nextTree = clearShareTokensInSubtree(state.tree, action.id);
       if (nextTree === state.tree) return state;
       return { ...state, tree: nextTree };
     }

@@ -56,6 +56,7 @@ export type AppAction =
   | { type: 'PASTE_SUBTREE'; afterId: string; subtree: BulletNode; newId?: string }
   | { type: 'IMPORT_OUTLINE'; parentId: string; roots: BulletNode[] }
   | { type: 'SET_NODE_SHARE'; id: string; shareToken: string }
+  | { type: 'CLEAR_NODE_SHARES'; id: string }
   | { type: 'SET_FOCUSED'; id: string | null; caret?: FocusCaret }
   | { type: 'ZOOM_INTO'; id: string; newChildId?: string }
   | { type: 'ZOOM_BACK' }

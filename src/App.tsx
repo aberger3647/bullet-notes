@@ -15,6 +15,7 @@ import { useVisualViewportBottom } from './hooks/useVisualViewportBottom';
 import { findNodeById, getChildrenForZoom } from './state/treeOps';
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import './App.css';
 
@@ -225,31 +226,33 @@ function DocumentRoute({ mode }: { mode: 'local' | 'shared' }) {
 
 export default function App() {
   return (
-    <Routes>
-      <Route
-        path="/docs"
-        element={
-          <RequireAuth>
-            <DocsPage />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/"
-        element={
-          <RequireAuth>
-            <DocumentRoute mode="local" />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/d/:shareToken"
-        element={
-          <RequireAuth>
-            <DocumentRoute mode="shared" />
-          </RequireAuth>
-        }
-      />
-    </Routes>
+    <TooltipProvider>
+      <Routes>
+        <Route
+          path="/docs"
+          element={
+            <RequireAuth>
+              <DocsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/"
+          element={
+            <RequireAuth>
+              <DocumentRoute mode="local" />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/d/:shareToken"
+          element={
+            <RequireAuth>
+              <DocumentRoute mode="shared" />
+            </RequireAuth>
+          }
+        />
+      </Routes>
+    </TooltipProvider>
   );
 }

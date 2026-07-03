@@ -290,7 +290,7 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
       if (result === 'copied') {
         toast('Link copied to clipboard', { id: SHARE_TOAST_ID });
       } else {
-        toast.dismiss(SHARE_TOAST_ID);
+        toast('Link shared', { id: SHARE_TOAST_ID });
       }
     }
   }, []);

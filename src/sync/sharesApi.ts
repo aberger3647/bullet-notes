@@ -39,6 +39,21 @@ export async function revokeShare(shareToken: string): Promise<void> {
   if (error) throw error;
 }
 
+/** All share tokens the current user has revoked (fetches every page). */
+export async function listRevokedShareTokens(): Promise<Set<string>> {
+  const revoked = new Set<string>();
+  let offset = 0;
+  for (;;) {
+    const { shares, hasMore } = await listMyShares(offset, SHARES_PAGE_SIZE);
+    for (const share of shares) {
+      if (share.revoked) revoked.add(share.share_token);
+    }
+    if (!hasMore) break;
+    offset += SHARES_PAGE_SIZE;
+  }
+  return revoked;
+}
+
 /** Best-effort revoke of any share links owned by `id` or its descendants — call before deleting a bullet. */
 export function revokeSharesInSubtree(tree: BulletNode[], id: string): void {
   const node = findNodeById(tree, id);

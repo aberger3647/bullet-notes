@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, within, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SettingsPanel } from './SettingsPanel';
 import { renderWithContext, makeState } from '../test/renderWithContext';
@@ -131,14 +131,13 @@ describe('SettingsPanel', () => {
   });
 
   it('lists version-history snapshots and restores one on confirmation', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     snapshotsState = { snapshots: [{ id: 'snap-1', created_at: '2026-06-30T12:00:00Z' }], loading: false };
     const { value } = renderWithContext(<SettingsPanel open onClose={() => {}} />, {
       state: makeState([node('a')]),
     });
-    const restoreBtn = screen.getByRole('button', { name: /restore/i });
-    fireEvent.click(restoreBtn);
-    expect(confirmSpy).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: /restore/i }));
+    const confirmDialog = await screen.findByRole('alertdialog', { name: /restore this version/i });
+    fireEvent.click(within(confirmDialog).getByRole('button', { name: 'Restore' }));
     await waitFor(() => expect(restoreSnapshotMock).toHaveBeenCalledWith('snap-1'));
     await waitFor(() =>
       expect(value.dispatch).toHaveBeenCalledWith(
@@ -150,16 +149,15 @@ describe('SettingsPanel', () => {
         }),
       ),
     );
-    confirmSpy.mockRestore();
   });
 
-  it('does not restore when the confirmation is cancelled', () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+  it('does not restore when the confirmation is cancelled', async () => {
     snapshotsState = { snapshots: [{ id: 'snap-1', created_at: '2026-06-30T12:00:00Z' }], loading: false };
     renderWithContext(<SettingsPanel open onClose={() => {}} />, { state: makeState([node('a')]) });
     fireEvent.click(screen.getByRole('button', { name: /restore/i }));
+    const confirmDialog = await screen.findByRole('alertdialog', { name: /restore this version/i });
+    fireEvent.click(within(confirmDialog).getByRole('button', { name: 'Cancel' }));
     expect(restoreSnapshotMock).not.toHaveBeenCalled();
-    confirmSpy.mockRestore();
   });
 
   it('lists my shared links with permission toggle and revoke', () => {
@@ -186,8 +184,7 @@ describe('SettingsPanel', () => {
     await waitFor(() => expect(togglePermissionMock).toHaveBeenCalledWith('tok-123', 'view'));
   });
 
-  it('revokes a share after confirmation', () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+  it('revokes a share after confirmation', async () => {
     sharesState = {
       shares: [
         { id: '1', share_token: 'tok-123', updated_at: '2026-06-30T12:00:00Z', permission: 'edit', revoked: false },
@@ -196,8 +193,9 @@ describe('SettingsPanel', () => {
     };
     renderWithContext(<SettingsPanel open onClose={() => {}} />, { state: makeState([node('a')]) });
     fireEvent.click(screen.getByRole('button', { name: 'Revoke' }));
+    const confirmDialog = await screen.findByRole('alertdialog', { name: /revoke this shared link/i });
+    fireEvent.click(within(confirmDialog).getByRole('button', { name: 'Revoke' }));
     expect(revokeShareMock).toHaveBeenCalledWith('tok-123');
-    confirmSpy.mockRestore();
   });
 
   it('does not enable the shares fetch while closed', () => {

@@ -68,6 +68,7 @@ export function MobileEditToolbar() {
       return;
     }
     revokeSharesInSubtree(state.tree, editingBulletId);
+    dispatch({ type: 'CLEAR_NODE_SHARES', id: editingBulletId });
     dispatch({ type: 'DELETE_NODE', id: editingBulletId });
   };
 
