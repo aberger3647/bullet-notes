@@ -12,7 +12,6 @@ import {
   parseOutlineClipboardJSON,
   serializeOutlineClipboardJSON,
   serializeOutlineClipboardText,
-  serializeSelectionClipboardText,
 } from '../state/treeOps';
 import { revokeSharesInSubtree } from '../sync/sharesApi';
 import { colorForClientId } from '../lib/presenceColor';
@@ -139,8 +138,6 @@ export function BulletRow({
     readOnly,
     otherPresences,
     selectedIds,
-    visibleOrder,
-    visibleChildren,
     selectRange,
     clearSelection,
   } = useAppState();
@@ -329,12 +326,6 @@ export function BulletRow({
   };
 
   const onCopy = (e: React.ClipboardEvent<HTMLDivElement>) => {
-    if (selectedIds.size > 0) {
-      e.preventDefault();
-      const orderedIds = visibleOrder.filter((id) => selectedIds.has(id));
-      e.clipboardData.setData('text/plain', serializeSelectionClipboardText(visibleChildren, orderedIds));
-      return;
-    }
     const sel = window.getSelection();
     if (sel && !sel.isCollapsed) return; // let default text-selection copy proceed
     e.preventDefault();

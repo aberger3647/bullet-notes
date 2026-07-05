@@ -253,40 +253,6 @@ describe('BulletRow copy (subtree)', () => {
     expect(value.dispatch).not.toHaveBeenCalled();
   });
 
-  it('copies a multi-bullet selection as tab-indented text, taking priority over subtree copy', () => {
-    const tree = [node('a', [], { text: 'first' }), node('b', [], { text: 'second' })];
-    const { value } = renderRow(node('a', [], { text: 'first' }), {}, {
-      selectedIds: new Set(['a', 'b']),
-      visibleOrder: ['a', 'b'],
-      visibleChildren: tree,
-    });
-    const el = editable();
-    setCaretAtStart(el);
-    const clipboardData = fakeClipboardData();
-    fireEvent.copy(el, { clipboardData });
-    expect(clipboardData._store['text/plain']).toBe('first\nsecond');
-    expect(clipboardData._store['application/x-bullet-notes-outline']).toBeUndefined();
-    expect(value.dispatch).not.toHaveBeenCalled();
-  });
-
-  it('multi-select copy takes priority even when there is also an active native text selection', () => {
-    const tree = [node('a', [], { text: 'first' }), node('b', [], { text: 'second' })];
-    const { value } = renderRow(node('a', [], { text: 'first' }), {}, {
-      selectedIds: new Set(['a', 'b']),
-      visibleOrder: ['a', 'b'],
-      visibleChildren: tree,
-    });
-    const el = editable();
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    const sel = window.getSelection();
-    sel?.removeAllRanges();
-    sel?.addRange(range); // non-collapsed selection — should still lose to the multi-select branch
-    const clipboardData = fakeClipboardData();
-    fireEvent.copy(el, { clipboardData });
-    expect(clipboardData._store['text/plain']).toBe('first\nsecond');
-    expect(value.dispatch).not.toHaveBeenCalled();
-  });
 });
 
 describe('BulletRow paste (subtree)', () => {

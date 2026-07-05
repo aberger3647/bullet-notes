@@ -18,6 +18,7 @@ import {
   extractSharedSubtree,
   getVisibleOrder,
   clampActionToSharedRoot,
+  serializeSelectionClipboardText,
 } from '../state/treeOps';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { toast } from 'sonner';
@@ -524,6 +525,20 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
 
   const visibleChildren = useMemo(() => getVisibleForView(state), [state]);
 
+  // Document-level (not per-bullet) so Cmd/Ctrl+C copies the selection regardless of what
+  // currently has DOM focus — e.g. after shift-clicking bullet markers, focus sits on a marker
+  // button, which is a sibling of the bullet text, so a per-row copy handler would never see it.
+  useEffect(() => {
+    const onCopy = (e: ClipboardEvent) => {
+      if (selectedIds.size === 0) return;
+      e.preventDefault();
+      const orderedIds = visibleOrder.filter((id) => selectedIds.has(id));
+      e.clipboardData?.setData('text/plain', serializeSelectionClipboardText(visibleChildren, orderedIds));
+    };
+    document.addEventListener('copy', onCopy);
+    return () => document.removeEventListener('copy', onCopy);
+  }, [selectedIds, visibleOrder, visibleChildren]);
+
   const resolvedSyncStatus: SyncConnectionStatus = isShared
     ? isSupabaseConfigured()
       ? sharedSyncStatus
@@ -558,7 +573,6 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
       scheduleClearEditingBullet,
       keepEditingBullet,
       selectedIds,
-      visibleOrder,
       selectRange,
       clearSelection,
       bulkIndent,
@@ -590,7 +604,6 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
       scheduleClearEditingBullet,
       keepEditingBullet,
       selectedIds,
-      visibleOrder,
       selectRange,
       clearSelection,
       bulkIndent,

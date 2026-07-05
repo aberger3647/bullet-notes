@@ -95,6 +95,53 @@ describe('AppStateProvider', () => {
   });
 });
 
+function fakeClipboardData(initial: Record<string, string> = {}) {
+  const store: Record<string, string> = { ...initial };
+  return {
+    setData: (type: string, val: string) => {
+      store[type] = val;
+    },
+    getData: (type: string) => store[type] ?? '',
+    types: Object.keys(store),
+    _store: store,
+  };
+}
+
+function dispatchCopy(clipboardData: ReturnType<typeof fakeClipboardData>) {
+  const event = new Event('copy', { bubbles: true, cancelable: true }) as Event & { clipboardData: unknown };
+  event.clipboardData = clipboardData;
+  act(() => {
+    document.dispatchEvent(event);
+  });
+  return event;
+}
+
+describe('AppStateProvider copy (multi-select)', () => {
+  it('copies the selected bullets as tab-indented text on Cmd/Ctrl+C, regardless of what has focus', () => {
+    const { getContext } = renderWithProvider(<div />, {
+      seed: seed([
+        node('a', [], { text: 'first' }),
+        node('b', [], { text: 'second' }),
+        node('c', [], { text: 'third' }),
+      ]),
+    });
+    act(() => {
+      getContext().selectRange('a');
+      getContext().selectRange('c');
+    });
+    const clipboardData = fakeClipboardData();
+    dispatchCopy(clipboardData);
+    expect(clipboardData._store['text/plain']).toBe('first\nsecond\nthird');
+  });
+
+  it('does nothing on copy when there is no active selection', () => {
+    renderWithProvider(<div />, { seed: seed([node('a', [], { text: 'first' })]) });
+    const clipboardData = fakeClipboardData();
+    dispatchCopy(clipboardData);
+    expect(clipboardData._store['text/plain']).toBeUndefined();
+  });
+});
+
 describe('AppStateProvider selection', () => {
   it('selects a single bullet on the first selectRange call', () => {
     const { getContext } = renderWithProvider(<div />, { seed: seed([node('a'), node('b'), node('c')]) });
