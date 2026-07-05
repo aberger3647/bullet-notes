@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import type { AppAction, BulletNode } from '../state/types';
-import { fetchDocument, parseBroadcastMessage, persistDocument } from './documentApi';
+import { fetchDocument, isViewOnlyRejection, parseBroadcastMessage, persistDocument } from './documentApi';
 import { recordShareOpen } from './sharedWithMeApi';
 import {
   isSyncableAction,
@@ -69,11 +69,14 @@ export function useDocumentSync({
   const shareTokenRef = useRef(shareToken);
   const onRemoteActionRef = useRef(onRemoteAction);
   const onHydrateRef = useRef(onHydrate);
+  const permissionRef = useRef(permission);
+  const lastHydratedTreeRef = useRef<BulletNode[] | null>(null);
   useEffect(() => {
     treeRef.current = tree;
     shareTokenRef.current = shareToken;
     onRemoteActionRef.current = onRemoteAction;
     onHydrateRef.current = onHydrate;
+    permissionRef.current = permission;
   });
 
   const broadcastNow = useCallback(async (action: AppAction) => {
@@ -128,7 +131,15 @@ export function useDocumentSync({
 
   const flushSave = useCallback(() => {
     if (!enabled || !isSupabaseConfigured()) return;
-    void persistDocument(shareTokenRef.current, treeRef.current).catch(() => {
+    if (permissionRef.current === 'view') return; // defense in depth — server remains authoritative
+    void persistDocument(shareTokenRef.current, treeRef.current).catch((err) => {
+      if (isViewOnlyRejection(err)) {
+        // Permission was downgraded (or the share was revoked) after we hydrated as
+        // editable — a rare mid-session race, not a load failure. Reflect the new
+        // reality instead of surfacing a fatal error.
+        setPermission('view');
+        return;
+      }
       setStatus('error');
     });
   }, [enabled]);
@@ -163,6 +174,7 @@ export function useDocumentSync({
           return;
         }
         onHydrateRef.current(doc.tree);
+        lastHydratedTreeRef.current = doc.tree;
         setPermission(doc.permission ?? 'edit');
         setHydrated(true);
         void recordShareOpen(shareToken).catch(() => {});
@@ -270,6 +282,7 @@ export function useDocumentSync({
 
   useEffect(() => {
     if (!enabled || status !== 'connected') return;
+    if (tree === lastHydratedTreeRef.current) return; // nothing changed since hydrate — don't resave untouched, just-fetched data
     scheduleSave();
   }, [enabled, scheduleSave, status, tree]);
 

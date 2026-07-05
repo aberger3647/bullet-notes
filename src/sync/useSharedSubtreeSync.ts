@@ -27,7 +27,11 @@ type ChannelBundle = {
   textTimers: Map<string, ReturnType<typeof setTimeout>>;
   pendingText: Map<string, string>;
   saveTimer: ReturnType<typeof setTimeout> | null;
+  reconnectTimer: ReturnType<typeof setTimeout> | null;
+  destroyed: boolean;
 };
+
+const RECONNECT_DELAY_MS = 1500;
 
 type UseSharedSubtreeSyncOptions = {
   tree: BulletNode[];
@@ -45,36 +49,50 @@ function createChannelBundle(
   const bundle: ChannelBundle = {
     rootId: root.id,
     shareToken: root.shareToken,
-    channel: supabase.channel(`doc:${root.shareToken}`, {
-      config: {
-        broadcast: { self: false },
-        presence: { key: clientId },
-      },
-    }),
+    channel: null as unknown as RealtimeChannel,
     subscribed: false,
     textTimers: new Map(),
     pendingText: new Map(),
     saveTimer: null,
+    reconnectTimer: null,
+    destroyed: false,
   };
 
-  bundle.channel
-    .on('broadcast', { event: 'action' }, (raw) => {
-      const msg = parseBroadcastMessage(raw);
-      if (!msg || msg.source === clientId) return;
-      const clamped = clampActionToSharedRoot(getTree(), msg.action, root.id);
-      if (clamped) onRemoteAction(clamped);
-    })
-    .subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        bundle.subscribed = true;
-        onSubscribedChange(root.shareToken, true);
-        void bundle.channel.track({ clientId });
-      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-        bundle.subscribed = false;
-        onSubscribedChange(root.shareToken, false);
-      }
+  const connect = () => {
+    if (bundle.destroyed) return;
+    const previousChannel: RealtimeChannel | null = bundle.channel;
+    const channel = supabase.channel(`doc:${root.shareToken}`, {
+      config: {
+        broadcast: { self: false },
+        presence: { key: clientId },
+      },
     });
+    bundle.channel = channel;
 
+    channel
+      .on('broadcast', { event: 'action' }, (raw) => {
+        const msg = parseBroadcastMessage(raw);
+        if (!msg || msg.source === clientId) return;
+        const clamped = clampActionToSharedRoot(getTree(), msg.action, root.id);
+        if (clamped) onRemoteAction(clamped);
+      })
+      .subscribe((status) => {
+        if (bundle.destroyed) return;
+        if (status === 'SUBSCRIBED') {
+          bundle.subscribed = true;
+          onSubscribedChange(root.shareToken, true);
+          void channel.track({ clientId });
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          bundle.subscribed = false;
+          onSubscribedChange(root.shareToken, false);
+          bundle.reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
+        }
+      });
+
+    if (previousChannel) void supabase.removeChannel(previousChannel);
+  };
+
+  connect();
   return bundle;
 }
 
@@ -121,10 +139,12 @@ function broadcastOnBundle(bundle: ChannelBundle, clientId: string, action: AppA
 }
 
 async function teardownBundle(bundle: ChannelBundle) {
+  bundle.destroyed = true;
   for (const timer of bundle.textTimers.values()) clearTimeout(timer);
   bundle.textTimers.clear();
   bundle.pendingText.clear();
   if (bundle.saveTimer) clearTimeout(bundle.saveTimer);
+  if (bundle.reconnectTimer) clearTimeout(bundle.reconnectTimer);
   bundle.subscribed = false;
   await supabase.removeChannel(bundle.channel);
 }
@@ -134,12 +154,14 @@ export function useSharedSubtreeSync({ tree, enabled, onRemoteAction }: UseShare
   const channelsRef = useRef<Map<string, ChannelBundle>>(new Map());
   const treeRef = useRef(tree);
   const onRemoteActionRef = useRef(onRemoteAction);
+  const sharedRoots = useMemo(() => collectSharedRoots(tree), [tree]);
+  const sharedRootsRef = useRef(sharedRoots);
   useEffect(() => {
     treeRef.current = tree;
     onRemoteActionRef.current = onRemoteAction;
+    sharedRootsRef.current = sharedRoots;
   });
 
-  const sharedRoots = useMemo(() => collectSharedRoots(tree), [tree]);
   const sharedRootsKey = useMemo(
     () => sharedRoots.map((r) => `${r.id}:${r.shareToken}`).join(','),
     [sharedRoots],
@@ -150,7 +172,8 @@ export function useSharedSubtreeSync({ tree, enabled, onRemoteAction }: UseShare
 
     const clientId = clientIdRef.current;
     const current = channelsRef.current;
-    const desiredTokens = new Set(sharedRoots.map((r) => r.shareToken));
+    const roots = sharedRootsRef.current;
+    const desiredTokens = new Set(roots.map((r) => r.shareToken));
 
     for (const [token, bundle] of current.entries()) {
       if (!desiredTokens.has(token)) {
@@ -159,7 +182,7 @@ export function useSharedSubtreeSync({ tree, enabled, onRemoteAction }: UseShare
       }
     }
 
-    for (const root of sharedRoots) {
+    for (const root of roots) {
       if (current.has(root.shareToken)) continue;
       const bundle = createChannelBundle(
         root,
@@ -177,7 +200,11 @@ export function useSharedSubtreeSync({ tree, enabled, onRemoteAction }: UseShare
       }
       current.clear();
     };
-  }, [enabled, sharedRootsKey, sharedRoots]);
+    // sharedRootsKey (not `sharedRoots`, which is a new array reference on every tree
+    // edit) is what this effect actually needs to react to — otherwise an unrelated
+    // text edit would tear down and recreate every shared-root channel, and the fresh,
+    // not-yet-subscribed bundle would silently miss that same edit's scheduled save.
+  }, [enabled, sharedRootsKey]);
 
   const scheduleSaves = useCallback(() => {
     if (!enabled) return;

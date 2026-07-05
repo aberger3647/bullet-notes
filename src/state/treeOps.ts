@@ -618,6 +618,42 @@ export function clearRevokedShareTokens(roots: BulletNode[], revokedTokens: Set<
   return roots.map(strip);
 }
 
+function collectShareTokenMap(roots: BulletNode[]): Map<string, string | undefined> {
+  const map = new Map<string, string | undefined>();
+  const walk = (nodes: BulletNode[]) => {
+    for (const n of nodes) {
+      map.set(n.id, n.shareToken);
+      walk(n.children);
+    }
+  };
+  walk(roots);
+  return map;
+}
+
+/**
+ * Re-applies the live tree's shareToken values (by id) onto a tree being restored via
+ * undo/redo. shareToken bookkeeping is intentionally excluded from undo history (it
+ * mirrors server-side state, not user-authored content) — so swapping in an older
+ * snapshot's structure must not silently resurrect a token that's since been committed
+ * or revoked. Nodes absent from the live tree (genuinely deleted-and-undone) are left
+ * exactly as the snapshot recorded them.
+ */
+export function reapplyLiveShareTokens(restoredTree: BulletNode[], liveTree: BulletNode[]): BulletNode[] {
+  const liveTokens = collectShareTokenMap(liveTree);
+  const apply = (node: BulletNode): BulletNode => {
+    const children = node.children.map(apply);
+    const liveToken = liveTokens.get(node.id);
+    const reconciled: BulletNode =
+      liveTokens.has(node.id) && liveToken !== node.shareToken
+        ? liveToken === undefined
+          ? { id: node.id, text: node.text, completed: node.completed, children: node.children }
+          : { ...node, shareToken: liveToken }
+        : node;
+    return children === node.children && reconciled === node ? node : { ...reconciled, children };
+  };
+  return restoredTree.map(apply);
+}
+
 /** Custom clipboard MIME type used to round-trip a copied subtree (structure + text) between bullets. */
 export const OUTLINE_CLIPBOARD_MIME = 'application/x-bullet-notes-outline';
 

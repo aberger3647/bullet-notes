@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { act, screen } from '@testing-library/react';
 import { renderWithProvider } from '../test/renderWithProvider';
 import { node } from '../test/factories';
@@ -92,6 +92,37 @@ describe('AppStateProvider', () => {
     // UNDO would normally revert the toggle, but it's a no-op in shared mode.
     act(() => getContext().dispatch({ type: 'UNDO' }));
     expect(getContext().state.tree[0]!.completed).toBe(true);
+  });
+});
+
+describe('AppStateProvider sharing', () => {
+  afterEach(() => {
+    delete (navigator as { share?: unknown }).share;
+  });
+
+  it('commits shareToken even when the share-sheet hand-off fails (server doc already exists)', async () => {
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      writable: true,
+      value: vi.fn().mockRejectedValue(new Error('NotAllowedError')),
+    });
+    const { getContext } = renderWithProvider(<div />, { seed: seed([node('a')]) });
+    await act(async () => {
+      await getContext().shareNode('a');
+    });
+    expect(getContext().state.tree[0]!.shareToken).toBe('test-token');
+  });
+
+  it('preserves a committed shareToken across an UNDO of an unrelated edit', async () => {
+    const { getContext } = renderWithProvider(<div />, { seed: seed([node('a')]) });
+    act(() => getContext().dispatch({ type: 'TOGGLE_COMPLETE', id: 'a' }));
+    await act(async () => {
+      await getContext().shareNode('a');
+    });
+    expect(getContext().state.tree[0]!.shareToken).toBe('test-token');
+    act(() => getContext().dispatch({ type: 'UNDO' }));
+    expect(getContext().state.tree[0]!.completed).toBe(false);
+    expect(getContext().state.tree[0]!.shareToken).toBe('test-token');
   });
 });
 

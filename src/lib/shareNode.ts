@@ -2,7 +2,7 @@ export function shareUrl(token: string): string {
   return `${window.location.origin}/d/${token}`;
 }
 
-export type ShareResult = 'shared' | 'copied' | 'cancelled';
+export type ShareResult = 'shared' | 'copied' | 'copy-failed' | 'cancelled';
 
 export async function openShareSheet(title: string, url: string): Promise<ShareResult> {
   if (typeof navigator.share === 'function') {
@@ -14,6 +14,10 @@ export async function openShareSheet(title: string, url: string): Promise<ShareR
       throw err;
     }
   }
-  await navigator.clipboard.writeText(url);
-  return 'copied';
+  try {
+    await navigator.clipboard.writeText(url);
+    return 'copied';
+  } catch {
+    return 'copy-failed';
+  }
 }

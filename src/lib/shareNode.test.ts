@@ -42,4 +42,10 @@ describe('openShareSheet', () => {
     expect(result).toBe('copied');
     expect(writeText).toHaveBeenCalledWith('https://x/y');
   });
+
+  it('returns "copy-failed" (not a throw) when the clipboard write rejects', async () => {
+    // no navigator.share defined
+    vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'));
+    await expect(openShareSheet('T', 'https://x/y')).resolves.toBe('copy-failed');
+  });
 });

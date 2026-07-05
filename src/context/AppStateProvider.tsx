@@ -292,14 +292,12 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
   );
 
   const commitShareResult = useCallback((id: string, token: string, result: ShareResult) => {
-    if (result === 'shared' || result === 'copied') {
-      const node = findNodeById(treeRef.current, id);
-      if (node && !node.shareToken) {
-        dispatch({ type: 'SET_NODE_SHARE', id, shareToken: token });
-      }
+    if (result === 'shared' || result === 'copied' || result === 'copy-failed') {
       pendingShareTokens.current.delete(id);
       if (result === 'copied') {
         toast('Link copied to clipboard', { id: SHARE_TOAST_ID });
+      } else if (result === 'copy-failed') {
+        toast('Link ready — copy it from "My shares"', { id: SHARE_TOAST_ID });
       } else {
         toast('Link shared', { id: SHARE_TOAST_ID });
       }
@@ -318,9 +316,18 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
     if (existing) return existing;
 
     const promise = (async () => {
+      // extractSharedSubtree reads treeRef.current, which reflects the last *committed*
+      // SET_NODE_SHARE for any descendant. There's a theoretical single-microtask window
+      // between a descendant's createSharedDocument resolving and its SET_NODE_SHARE
+      // landing here; closing it fully would require a server round-trip before every
+      // share click, which isn't worth the added latency for this window's size.
       const subtree = extractSharedSubtree(treeRef.current, id);
       const token = await createSharedDocument(subtree);
       pendingShareTokens.current.set(id, token);
+      // Commit immediately — the server document already exists, so the tree must
+      // record it now rather than waiting on the (best-effort) share-sheet/clipboard
+      // step below, which can fail without undoing the fact that this bullet is shared.
+      dispatch({ type: 'SET_NODE_SHARE', id, shareToken: token });
       pendingSharePromises.current.delete(id);
       return token;
     })();

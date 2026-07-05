@@ -31,6 +31,7 @@ import {
   isUnderSharedRoot,
   extractSharedSubtree,
   setNodeShareToken,
+  reapplyLiveShareTokens,
   getActionNodeIds,
   duplicateSubtree,
   getVisibleOrder,
@@ -458,6 +459,52 @@ describe('share helpers', () => {
   it('setNodeShareToken returns the same reference for a missing id', () => {
     const tree = [node('a')];
     expect(setNodeShareToken(tree, 'nope', 'tk')).toBe(tree);
+  });
+});
+
+describe('reapplyLiveShareTokens', () => {
+  it('restores a shareToken the live tree has that the restored snapshot predates', () => {
+    const restored = [node('a')];
+    const live = [node('a', [], { shareToken: 'tok' })];
+    const result = reapplyLiveShareTokens(restored, live);
+    expect(result[0]!.shareToken).toBe('tok');
+  });
+
+  it('clears a stale shareToken the live tree has since revoked', () => {
+    const restored = [node('a', [], { shareToken: 'tok' })];
+    const live = [node('a')];
+    const result = reapplyLiveShareTokens(restored, live);
+    expect(result[0]!.shareToken).toBeUndefined();
+  });
+
+  it('leaves nodes absent from the live tree untouched', () => {
+    const restored = [node('a', [], { shareToken: 'tok' }), node('deleted', [], { shareToken: 'gone' })];
+    const live = [node('a')];
+    const result = reapplyLiveShareTokens(restored, live);
+    expect(result[0]!.shareToken).toBeUndefined();
+    expect(result[1]!.shareToken).toBe('gone');
+  });
+
+  it('reconciles nested/descendant tokens, not just top-level ones', () => {
+    const restored = [node('a', [node('a1')])];
+    const live = [node('a', [node('a1', [], { shareToken: 'tokA1' })], { shareToken: 'tokA' })];
+    const result = reapplyLiveShareTokens(restored, live);
+    expect(result[0]!.shareToken).toBe('tokA');
+    expect(result[0]!.children[0]!.shareToken).toBe('tokA1');
+  });
+
+  it('is a value no-op (unchanged content) when nothing differs', () => {
+    const restored = [node('a', [node('a1')])];
+    const live = [node('a', [node('a1')])];
+    const result = reapplyLiveShareTokens(restored, live);
+    expect(result).toEqual(restored);
+  });
+
+  it('preserves text/completed/children when stripping a stale token', () => {
+    const restored = [node('a', [node('a1')], { shareToken: 'tok', text: 'hello', completed: true })];
+    const live = [node('a')];
+    const result = reapplyLiveShareTokens(restored, live);
+    expect(result[0]).toEqual({ id: 'a', text: 'hello', completed: true, children: [node('a1')] });
   });
 });
 

@@ -41,3 +41,10 @@ export async function persistDocument(shareToken: string, tree: BulletNode[]): P
   });
   if (error) throw error;
 }
+
+/** True if `error` is the expected rejection from `bullet_notes_save_document` for a
+ * view-only or revoked share — not a genuine load/network failure. */
+export function isViewOnlyRejection(error: unknown): boolean {
+  const message = (error as { message?: unknown } | null)?.message;
+  return typeof message === 'string' && message.includes('view-only or no longer shared');
+}

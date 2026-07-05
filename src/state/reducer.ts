@@ -22,6 +22,7 @@ import {
   setNodeText,
   setNodeShareToken,
   clearShareTokensInSubtree,
+  reapplyLiveShareTokens,
   toggleComplete,
   setNodesCompleted,
   indentNodes,
@@ -68,10 +69,11 @@ function applyUndo(state: AppState): AppState {
   const previous = state.history.past[state.history.past.length - 1]!;
   const newPast = state.history.past.slice(0, -1);
   const currentSnap: Snapshot = snapshotOf(state);
+  const tree = reapplyLiveShareTokens(previous.tree, state.tree);
   return {
     ...state,
-    tree: previous.tree,
-    zoomPath: sanitizeZoomPath(previous.tree, previous.zoomPath),
+    tree,
+    zoomPath: sanitizeZoomPath(tree, previous.zoomPath),
     focusedId: null,
     history: {
       past: newPast,
@@ -85,10 +87,11 @@ function applyRedo(state: AppState): AppState {
   const next = state.history.future[0]!;
   const newFuture = state.history.future.slice(1);
   const currentSnap: Snapshot = snapshotOf(state);
+  const tree = reapplyLiveShareTokens(next.tree, state.tree);
   return {
     ...state,
-    tree: next.tree,
-    zoomPath: sanitizeZoomPath(next.tree, next.zoomPath),
+    tree,
+    zoomPath: sanitizeZoomPath(tree, next.zoomPath),
     focusedId: null,
     history: {
       past: capPast([...state.history.past, currentSnap]),

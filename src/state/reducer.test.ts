@@ -517,6 +517,42 @@ describe('UNDO / REDO', () => {
     }
     expect(s.history.past).toHaveLength(MAX_HISTORY);
   });
+
+  it('a shareToken set after the last snapshot survives an UNDO of an earlier action', () => {
+    const s0 = stateWith([node('a')]);
+    const s1 = appReducer(s0, { type: 'TOGGLE_COMPLETE', id: 'a' }); // withCommit, pushes a snapshot
+    const s2 = appReducer(s1, { type: 'SET_NODE_SHARE', id: 'a', shareToken: 'tok' }); // not in history
+    expect(s2.history.past).toHaveLength(1);
+    const undone = appReducer(s2, { type: 'UNDO' });
+    expect(undone.tree[0]!.completed).toBe(false); // the TOGGLE_COMPLETE was undone
+    expect(undone.tree[0]!.shareToken).toBe('tok'); // but the share survives
+  });
+
+  it('a shareToken set after the last snapshot survives a REDO too', () => {
+    const s0 = stateWith([node('a')]);
+    const s1 = appReducer(s0, { type: 'TOGGLE_COMPLETE', id: 'a' });
+    const undone = appReducer(s1, { type: 'UNDO' });
+    const shared = appReducer(undone, { type: 'SET_NODE_SHARE', id: 'a', shareToken: 'tok' });
+    const redone = appReducer(shared, { type: 'REDO' });
+    expect(redone.tree[0]!.completed).toBe(true); // the TOGGLE_COMPLETE was redone
+    expect(redone.tree[0]!.shareToken).toBe('tok'); // and the share still survives
+  });
+
+  it('SET_NODE_SHARE alone does not push a history snapshot', () => {
+    const s0 = stateWith([node('a')]);
+    const s1 = appReducer(s0, { type: 'SET_NODE_SHARE', id: 'a', shareToken: 'tok' });
+    expect(s1.history.past).toHaveLength(0);
+  });
+
+  it('CLEAR_NODE_SHARES after a snapshot stays cleared through an unrelated UNDO', () => {
+    const s0 = stateWith([node('a', [], { shareToken: 'tok' })]);
+    const s1 = appReducer(s0, { type: 'TOGGLE_COMPLETE', id: 'a' }); // withCommit, snapshot has the token
+    const s2 = appReducer(s1, { type: 'CLEAR_NODE_SHARES', id: 'a' }); // not in history
+    expect(s2.tree[0]!.shareToken).toBeUndefined();
+    const undone = appReducer(s2, { type: 'UNDO' });
+    expect(undone.tree[0]!.completed).toBe(false); // the TOGGLE_COMPLETE was undone
+    expect(undone.tree[0]!.shareToken).toBeUndefined(); // but the clear is not resurrected
+  });
 });
 
 describe('RESTORE_HISTORY', () => {
