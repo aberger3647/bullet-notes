@@ -646,7 +646,7 @@ export function reapplyLiveShareTokens(restoredTree: BulletNode[], liveTree: Bul
     const reconciled: BulletNode =
       liveTokens.has(node.id) && liveToken !== node.shareToken
         ? liveToken === undefined
-          ? { id: node.id, text: node.text, completed: node.completed, children: node.children }
+          ? stripShareToken(node)
           : { ...node, shareToken: liveToken }
         : node;
     return children === node.children && reconciled === node ? node : { ...reconciled, children };

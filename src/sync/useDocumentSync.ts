@@ -6,6 +6,7 @@ import { fetchDocument, isViewOnlyRejection, parseBroadcastMessage, persistDocum
 import { recordShareOpen } from './sharedWithMeApi';
 import {
   isSyncableAction,
+  RECONNECT_DELAY_MS,
   SAVE_DEBOUNCE_MS,
   TEXT_BROADCAST_MS,
   type BroadcastMessage,
@@ -247,13 +248,13 @@ export function useDocumentSync({
               subscribedRef.current = false;
               setStatus('reconnecting');
               if (!cancelled) {
-                reconnectTimer = setTimeout(connect, 1500);
+                reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
               }
             } else if (subscribeStatus === 'CLOSED') {
               subscribedRef.current = false;
               if (!cancelled) {
                 setStatus('reconnecting');
-                reconnectTimer = setTimeout(connect, 1500);
+                reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
               }
             }
           });

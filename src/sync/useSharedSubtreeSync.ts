@@ -12,6 +12,7 @@ import {
 import { parseBroadcastMessage, persistDocument } from './documentApi';
 import {
   isSyncableAction,
+  RECONNECT_DELAY_MS,
   SAVE_DEBOUNCE_MS,
   TEXT_BROADCAST_MS,
   type BroadcastMessage,
@@ -30,8 +31,6 @@ type ChannelBundle = {
   reconnectTimer: ReturnType<typeof setTimeout> | null;
   destroyed: boolean;
 };
-
-const RECONNECT_DELAY_MS = 1500;
 
 type UseSharedSubtreeSyncOptions = {
   tree: BulletNode[];

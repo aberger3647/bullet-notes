@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { node } from '../test/factories';
+import { makeFakeChannel } from '../test/fakeSupabaseChannel';
 import { supabase } from '../lib/supabase';
 import { fetchDocument, persistDocument } from './documentApi';
 import { useDocumentSync } from './useDocumentSync';
@@ -10,43 +11,16 @@ import { SAVE_DEBOUNCE_MS } from './syncTypes';
 // undo that here since this file exercises the real implementation.
 vi.unmock('./useDocumentSync');
 
-type FakeChannel = {
-  on: ReturnType<typeof vi.fn>;
-  subscribe: ReturnType<typeof vi.fn>;
-  track: ReturnType<typeof vi.fn>;
-  send: ReturnType<typeof vi.fn>;
-  presenceState: ReturnType<typeof vi.fn>;
-};
-
-function makeFakeChannel(): FakeChannel {
-  const channel: FakeChannel = {
-    on: vi.fn(),
-    subscribe: vi.fn(),
-    track: vi.fn().mockResolvedValue('ok'),
-    send: vi.fn().mockResolvedValue('ok'),
-    presenceState: vi.fn().mockReturnValue({}),
-  };
-  channel.on.mockImplementation(() => channel);
-  channel.subscribe.mockImplementation((cb: (status: string) => void) => {
-    cb('SUBSCRIBED'); // simulate an instant handshake
-    return channel;
-  });
-  return channel;
-}
-
 vi.mock('../lib/supabase', () => ({
   isSupabaseConfigured: () => true,
   supabase: { channel: vi.fn(), removeChannel: vi.fn() },
 }));
 
-vi.mock('./documentApi', () => ({
+vi.mock('./documentApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./documentApi')>()),
   fetchDocument: vi.fn(),
   persistDocument: vi.fn(),
   parseBroadcastMessage: vi.fn(),
-  isViewOnlyRejection: (error: unknown) => {
-    const message = (error as { message?: unknown } | null)?.message;
-    return typeof message === 'string' && message.includes('view-only or no longer shared');
-  },
 }));
 
 vi.mock('./sharedWithMeApi', () => ({
@@ -74,15 +48,17 @@ beforeEach(() => {
   });
 });
 
+type SyncProps = Parameters<typeof useDocumentSync>[0];
+
 /**
  * Renders the hook the way the real app does: `onHydrate` feeds the fetched tree back
  * into props on the next render (mirroring AppStateProvider dispatching HYDRATE and
  * re-rendering with `state.tree`), so the hook's `tree` prop becomes reference-equal to
  * what it just fetched — the exact invariant Fix 6a's guard depends on.
  */
-function renderConnected(overrides: Partial<Parameters<typeof useDocumentSync>[0]> = {}) {
-  let rerenderFn: ((props: Parameters<typeof useDocumentSync>[0]) => void) | null = null;
-  const initialProps: Parameters<typeof useDocumentSync>[0] = {
+function renderConnected(overrides: Partial<SyncProps> = {}) {
+  let rerenderFn: ((props: SyncProps) => void) | null = null;
+  const initialProps: SyncProps = {
     shareToken: 'tok',
     tree: baseTree(),
     enabled: true,
@@ -94,9 +70,18 @@ function renderConnected(overrides: Partial<Parameters<typeof useDocumentSync>[0
     },
     ...overrides,
   };
-  const utils = renderHook((p: typeof initialProps) => useDocumentSync(p), { initialProps });
+  const utils = renderHook((p: SyncProps) => useDocumentSync(p), { initialProps });
   rerenderFn = utils.rerender;
-  return utils;
+  return { ...utils, initialProps };
+}
+
+/** Simulates a local edit: re-renders with the same props but a new `tree` reference. */
+function rerenderWithTree(
+  rerender: (props: SyncProps) => void,
+  initialProps: SyncProps,
+  tree: SyncProps['tree'],
+) {
+  rerender({ ...initialProps, tree });
 }
 
 describe('useDocumentSync', () => {
@@ -120,20 +105,11 @@ describe('useDocumentSync', () => {
       share_token: 'tok',
     });
     vi.useFakeTimers();
-    const { result, rerender } = renderConnected();
+    const { result, rerender, initialProps } = renderConnected();
     await act(async () => {});
     expect(result.current.permission).toBe('view');
 
-    const editedTree = [node('root', [], { shareToken: 'tok', text: 'edited' })];
-    rerender({
-      shareToken: 'tok',
-      tree: editedTree,
-      enabled: true,
-      displayName: 'Tester',
-      editingId: null,
-      onRemoteAction: () => {},
-      onHydrate: () => {},
-    });
+    rerenderWithTree(rerender, initialProps, [node('root', [], { shareToken: 'tok', text: 'edited' })]);
     act(() => vi.advanceTimersByTime(SAVE_DEBOUNCE_MS));
     expect(vi.mocked(persistDocument)).not.toHaveBeenCalled();
     vi.useRealTimers();
@@ -141,19 +117,11 @@ describe('useDocumentSync', () => {
 
   it('still saves a genuine edit after the debounce', async () => {
     vi.useFakeTimers();
-    const { rerender } = renderConnected();
+    const { rerender, initialProps } = renderConnected();
     await act(async () => {});
 
     const editedTree = [node('root', [], { shareToken: 'tok', text: 'edited' })];
-    rerender({
-      shareToken: 'tok',
-      tree: editedTree,
-      enabled: true,
-      displayName: 'Tester',
-      editingId: null,
-      onRemoteAction: () => {},
-      onHydrate: () => {},
-    });
+    rerenderWithTree(rerender, initialProps, editedTree);
     act(() => vi.advanceTimersByTime(SAVE_DEBOUNCE_MS));
     expect(vi.mocked(persistDocument)).toHaveBeenCalledWith('tok', editedTree);
     vi.useRealTimers();
@@ -164,19 +132,10 @@ describe('useDocumentSync', () => {
     vi.mocked(persistDocument).mockRejectedValue(
       Object.assign(new Error('This document is view-only or no longer shared'), { code: 'P0001' }),
     );
-    const { result, rerender } = renderConnected();
+    const { result, rerender, initialProps } = renderConnected();
     await act(async () => {});
 
-    const editedTree = [node('root', [], { shareToken: 'tok', text: 'edited' })];
-    rerender({
-      shareToken: 'tok',
-      tree: editedTree,
-      enabled: true,
-      displayName: 'Tester',
-      editingId: null,
-      onRemoteAction: () => {},
-      onHydrate: () => {},
-    });
+    rerenderWithTree(rerender, initialProps, [node('root', [], { shareToken: 'tok', text: 'edited' })]);
     act(() => vi.advanceTimersByTime(SAVE_DEBOUNCE_MS));
     await act(async () => {});
 
@@ -188,19 +147,10 @@ describe('useDocumentSync', () => {
   it('sets status to error for an unrelated save rejection', async () => {
     vi.useFakeTimers();
     vi.mocked(persistDocument).mockRejectedValue(new Error('network boom'));
-    const { result, rerender } = renderConnected();
+    const { result, rerender, initialProps } = renderConnected();
     await act(async () => {});
 
-    const editedTree = [node('root', [], { shareToken: 'tok', text: 'edited' })];
-    rerender({
-      shareToken: 'tok',
-      tree: editedTree,
-      enabled: true,
-      displayName: 'Tester',
-      editingId: null,
-      onRemoteAction: () => {},
-      onHydrate: () => {},
-    });
+    rerenderWithTree(rerender, initialProps, [node('root', [], { shareToken: 'tok', text: 'edited' })]);
     act(() => vi.advanceTimersByTime(SAVE_DEBOUNCE_MS));
     await act(async () => {});
 

@@ -30,3 +30,4 @@ export function isSyncableAction(action: AppAction): boolean {
 
 export const TEXT_BROADCAST_MS = 300;
 export const SAVE_DEBOUNCE_MS = 2000;
+export const RECONNECT_DELAY_MS = 1500;

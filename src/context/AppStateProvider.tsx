@@ -291,7 +291,7 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
     [isShared, isLocal],
   );
 
-  const commitShareResult = useCallback((id: string, token: string, result: ShareResult) => {
+  const commitShareResult = useCallback((id: string, result: ShareResult) => {
     if (result === 'shared' || result === 'copied' || result === 'copy-failed') {
       pendingShareTokens.current.delete(id);
       if (result === 'copied') {
@@ -348,7 +348,7 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
       const url = shareUrl(token);
       const title = `${(node.text.trim() || 'Shared bullet')} — Honeydew`;
       const result = await openShareSheet(title, url);
-      commitShareResult(id, token, result);
+      commitShareResult(id, result);
     },
     [commitShareResult],
   );

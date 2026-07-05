@@ -91,7 +91,7 @@ export function MobileEditToolbar() {
       const url = shareUrl(token);
       const title = `${(node.text.trim() || 'Shared bullet')} — Honeydew`;
       void openShareSheet(title, url)
-        .then((result) => completeShareForBullet(editingBulletId, token, result))
+        .then((result) => completeShareForBullet(editingBulletId, result))
         .catch(() => {})
         .finally(() => setShareBusy(false));
       return;
