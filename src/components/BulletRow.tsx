@@ -14,6 +14,8 @@ import {
 } from '../state/treeOps';
 import { revokeSharesInSubtree } from '../sync/sharesApi';
 import { colorForClientId } from '../lib/presenceColor';
+import { looksLikeOutlineText, parseImportedOutline } from '../lib/importOutline';
+import { htmlHasListStructure, parseHtmlOutline } from '../lib/htmlOutline';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -298,7 +300,24 @@ export function BulletRow({
       dispatch({ type: 'PASTE_SUBTREE', afterId: node.id, subtree, newId: crypto.randomUUID() });
       return;
     }
+    const html = e.clipboardData.getData('text/html');
+    if (html && htmlHasListStructure(html)) {
+      const roots = parseHtmlOutline(html, () => crypto.randomUUID());
+      if (roots.length > 0) {
+        dispatch({ type: 'PASTE_OUTLINE', afterId: node.id, roots, newId: crypto.randomUUID() });
+        return;
+      }
+    }
+
     const text = e.clipboardData.getData('text/plain').replace(/\r\n/g, '\n');
+    if (looksLikeOutlineText(text)) {
+      const roots = parseImportedOutline(text, () => crypto.randomUUID());
+      if (roots.length > 0) {
+        dispatch({ type: 'PASTE_OUTLINE', afterId: node.id, roots, newId: crypto.randomUUID() });
+        return;
+      }
+    }
+
     insertTextAtCaret(e.currentTarget, text);
     commitText(e.currentTarget);
   };

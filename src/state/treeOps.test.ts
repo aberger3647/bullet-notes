@@ -17,6 +17,7 @@ import {
   cloneSubtree,
   insertSiblingBefore,
   insertSiblingAfter,
+  insertSiblingsAfter,
   appendChild,
   indentNode,
   outdentNode,
@@ -240,6 +241,23 @@ describe('insertSiblingBefore / insertSiblingAfter', () => {
     const tree = [node('a')];
     expect(insertSiblingBefore(tree, 'nope', node('x'))).toBe(tree);
     expect(insertSiblingAfter(tree, 'nope', node('x'))).toBe(tree);
+  });
+});
+
+describe('insertSiblingsAfter', () => {
+  it('inserts multiple nodes in order after the target', () => {
+    const tree = [node('a'), node('b')];
+    expect(ids(insertSiblingsAfter(tree, 'a', [node('x'), node('y')]))).toEqual(['a', 'x', 'y', 'b']);
+  });
+
+  it('inserts correctly when the target is the last sibling', () => {
+    const tree = [node('a'), node('b')];
+    expect(ids(insertSiblingsAfter(tree, 'b', [node('x'), node('y')]))).toEqual(['a', 'b', 'x', 'y']);
+  });
+
+  it('returns the same reference when the target is missing', () => {
+    const tree = [node('a')];
+    expect(insertSiblingsAfter(tree, 'nope', [node('x')])).toBe(tree);
   });
 });
 
@@ -659,6 +677,8 @@ describe('getActionNodeIds', () => {
     [{ type: 'DUPLICATE_NODE', id: 'x' }, ['x']],
     [{ type: 'PASTE_SUBTREE', afterId: 'x', subtree: node('p'), newId: 'n' }, ['x', 'n']],
     [{ type: 'PASTE_SUBTREE', afterId: 'x', subtree: node('p') }, ['x']],
+    [{ type: 'PASTE_OUTLINE', afterId: 'x', roots: [node('p')], newId: 'n' }, ['x', 'n']],
+    [{ type: 'PASTE_OUTLINE', afterId: 'x', roots: [node('p')] }, ['x']],
     [{ type: 'ZOOM_BACK' }, []],
     [{ type: 'UNDO' }, []],
   ];
@@ -702,16 +722,20 @@ describe('clampActionToSharedRoot', () => {
     expect(clampActionToSharedRoot(tree(), after, 'root')).toEqual(after);
   });
 
-  it('drops DUPLICATE_NODE / PASTE_SUBTREE targeting the root', () => {
+  it('drops DUPLICATE_NODE / PASTE_SUBTREE / PASTE_OUTLINE targeting the root', () => {
     const dup: AppAction = { type: 'DUPLICATE_NODE', id: 'root', newId: 'n' };
     const paste: AppAction = { type: 'PASTE_SUBTREE', afterId: 'root', subtree: node('p'), newId: 'n' };
+    const pasteOutline: AppAction = { type: 'PASTE_OUTLINE', afterId: 'root', roots: [node('p')], newId: 'n' };
     expect(clampActionToSharedRoot(tree(), dup, 'root')).toBeNull();
     expect(clampActionToSharedRoot(tree(), paste, 'root')).toBeNull();
+    expect(clampActionToSharedRoot(tree(), pasteOutline, 'root')).toBeNull();
   });
 
-  it('leaves DUPLICATE_NODE / PASTE_SUBTREE targeting a non-root node unchanged', () => {
+  it('leaves DUPLICATE_NODE / PASTE_OUTLINE targeting a non-root node unchanged', () => {
     const dup: AppAction = { type: 'DUPLICATE_NODE', id: 'child', newId: 'n' };
+    const pasteOutline: AppAction = { type: 'PASTE_OUTLINE', afterId: 'child', roots: [node('p')], newId: 'n' };
     expect(clampActionToSharedRoot(tree(), dup, 'root')).toEqual(dup);
+    expect(clampActionToSharedRoot(tree(), pasteOutline, 'root')).toEqual(pasteOutline);
   });
 
   it('drops OUTDENT for the root itself and for a direct child of the root', () => {

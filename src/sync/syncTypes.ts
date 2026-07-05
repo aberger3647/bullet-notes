@@ -21,6 +21,7 @@ const SYNCABLE_TYPES = new Set<AppAction['type']>([
   'MERGE_WITH_PREVIOUS',
   'DUPLICATE_NODE',
   'PASTE_SUBTREE',
+  'PASTE_OUTLINE',
 ]);
 
 export function isSyncableAction(action: AppAction): boolean {

@@ -54,6 +54,7 @@ export type AppAction =
   | { type: 'MERGE_WITH_PREVIOUS'; id: string; targetId: string }
   | { type: 'DUPLICATE_NODE'; id: string; newId?: string }
   | { type: 'PASTE_SUBTREE'; afterId: string; subtree: BulletNode; newId?: string }
+  | { type: 'PASTE_OUTLINE'; afterId: string; roots: BulletNode[]; newId?: string }
   | { type: 'IMPORT_OUTLINE'; parentId: string; roots: BulletNode[] }
   | { type: 'SET_NODE_SHARE'; id: string; shareToken: string }
   | { type: 'CLEAR_NODE_SHARES'; id: string }

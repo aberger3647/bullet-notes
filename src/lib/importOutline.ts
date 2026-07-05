@@ -70,3 +70,9 @@ export function parseImportedOutline(content: string, genId: () => string): Bull
   const lines = content.split(/\r?\n/).map(parseLine).filter((l): l is ParsedLine => l !== null);
   return buildTree(lines, genId);
 }
+
+/** True if any non-blank line has real leading indentation or a markdown bullet/checkbox marker. */
+export function looksLikeOutlineText(content: string): boolean {
+  const lines = content.split(/\r?\n/).filter((l) => l.trim() !== '');
+  return lines.some((line) => /^[\t ]+\S/.test(line) || /^[\t ]*[-*+]\s+/.test(line));
+}

@@ -16,6 +16,7 @@ describe('isSyncableAction', () => {
     { type: 'MERGE_WITH_PREVIOUS', id: 'x', targetId: 'y' },
     { type: 'DUPLICATE_NODE', id: 'x' },
     { type: 'PASTE_SUBTREE', afterId: 'x', subtree: { id: 'p', text: '', completed: false, children: [] } },
+    { type: 'PASTE_OUTLINE', afterId: 'x', roots: [{ id: 'p', text: '', completed: false, children: [] }] },
   ];
 
   it.each(syncable)('treats %o as syncable', (action) => {

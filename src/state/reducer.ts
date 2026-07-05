@@ -6,6 +6,7 @@ import {
   findNodeById,
   indentNode,
   insertSiblingAfter,
+  insertSiblingsAfter,
   insertSiblingBefore,
   locateNode,
   duplicateSubtree,
@@ -185,6 +186,28 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const nextTree = insertSiblingAfter(state.tree, action.afterId, fresh);
       if (nextTree === state.tree) return state;
       return withCommit(state, { tree: nextTree, focusedId: fresh.id, focusCaret: 'end' });
+    }
+    case 'PASTE_OUTLINE': {
+      if (action.roots.length === 0) return state;
+      const loc = locateNode(state.tree, action.afterId);
+      if (!loc) return state;
+      let usedFirstId = false;
+      const fresh = action.roots.map((r) =>
+        duplicateSubtree(r, () => {
+          if (!usedFirstId) {
+            usedFirstId = true;
+            return action.newId ?? crypto.randomUUID();
+          }
+          return crypto.randomUUID();
+        }),
+      );
+      const nextTree = insertSiblingsAfter(state.tree, action.afterId, fresh);
+      if (nextTree === state.tree) return state;
+      return withCommit(state, {
+        tree: nextTree,
+        focusedId: fresh[fresh.length - 1]!.id,
+        focusCaret: 'end',
+      });
     }
     case 'IMPORT_OUTLINE': {
       if (action.roots.length === 0) return state;

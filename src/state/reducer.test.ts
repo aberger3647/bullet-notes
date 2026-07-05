@@ -303,6 +303,42 @@ describe('PASTE_SUBTREE', () => {
   });
 });
 
+describe('PASTE_OUTLINE', () => {
+  it('inserts all pasted roots as fresh-id siblings after the target, focusing the last root', () => {
+    const s = stateWith([node('a')]);
+    const pasted = [
+      node('x', [], { text: 'first' }),
+      node('y', [node('y1')], { text: 'second' }),
+    ];
+    const next = appReducer(s, {
+      type: 'PASTE_OUTLINE',
+      afterId: 'a',
+      roots: pasted,
+      newId: 'fresh-first',
+    });
+    expect(next.tree.map((n) => n.id)).toEqual(['a', 'fresh-first', next.tree[2]!.id]);
+    expect(next.tree[1]!.text).toBe('first');
+    expect(next.tree[2]!.text).toBe('second');
+    expect(next.tree[2]!.children).toHaveLength(1);
+    expect(next.tree[2]!.children[0]!.id).not.toBe('y1');
+    expect(next.focusedId).toBe(next.tree[2]!.id);
+    expect(next.focusCaret).toBe('end');
+    expect(next.history.past).toHaveLength(1);
+  });
+
+  it('is a no-op when roots is empty', () => {
+    const s = stateWith([node('a')]);
+    expect(appReducer(s, { type: 'PASTE_OUTLINE', afterId: 'a', roots: [] })).toBe(s);
+  });
+
+  it('returns the same state when the target is missing', () => {
+    const s = stateWith([node('a')]);
+    expect(
+      appReducer(s, { type: 'PASTE_OUTLINE', afterId: 'nope', roots: [node('x')] }),
+    ).toBe(s);
+  });
+});
+
 describe('IMPORT_OUTLINE', () => {
   it('appends imported roots to the root level with fresh ids', () => {
     const s = stateWith([node('a')]);

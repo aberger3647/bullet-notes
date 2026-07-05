@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseImportedOutline } from './importOutline';
+import { parseImportedOutline, looksLikeOutlineText } from './importOutline';
 
 describe('parseImportedOutline — JSON', () => {
   it('parses a JSON array of nodes with fresh ids', () => {
@@ -57,5 +57,27 @@ describe('parseImportedOutline — plain/markdown text', () => {
 
   it('returns [] for empty input', () => {
     expect(parseImportedOutline('   \n  ', () => 'id')).toEqual([]);
+  });
+});
+
+describe('looksLikeOutlineText', () => {
+  it('is false for plain multi-line text with no indentation or markers', () => {
+    expect(looksLikeOutlineText('line1\nline2')).toBe(false);
+  });
+
+  it('is true when a line has a markdown bullet marker', () => {
+    expect(looksLikeOutlineText('- item1\n- item2')).toBe(true);
+  });
+
+  it('is true when a line has real leading indentation', () => {
+    expect(looksLikeOutlineText('parent\n\tchild')).toBe(true);
+  });
+
+  it('is false for a single line with no markers', () => {
+    expect(looksLikeOutlineText('just one line')).toBe(false);
+  });
+
+  it('is true for a lone GFM checkbox marker', () => {
+    expect(looksLikeOutlineText('- [ ] todo')).toBe(true);
   });
 });

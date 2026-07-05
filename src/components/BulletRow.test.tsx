@@ -258,6 +258,82 @@ describe('BulletRow paste (subtree)', () => {
   });
 });
 
+describe('BulletRow paste (outline)', () => {
+  it('splits a tab-indented plain-text paste into nested bullets', () => {
+    const { value } = renderRow(node('n1', [], { text: '' }));
+    const el = editable();
+    const clipboardData = fakeClipboardData({ 'text/plain': 'parent\n\tchild' });
+    fireEvent.paste(el, { clipboardData });
+    expect(value.dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'PASTE_OUTLINE',
+        afterId: 'n1',
+        roots: [
+          expect.objectContaining({
+            text: 'parent',
+            children: [expect.objectContaining({ text: 'child' })],
+          }),
+        ],
+      }),
+    );
+    expect(value.dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'SET_TEXT' }));
+  });
+
+  it('splits a markdown list paste into flat sibling bullets', () => {
+    const { value } = renderRow(node('n1', [], { text: '' }));
+    const el = editable();
+    const clipboardData = fakeClipboardData({ 'text/plain': '- one\n- two' });
+    fireEvent.paste(el, { clipboardData });
+    expect(value.dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'PASTE_OUTLINE',
+        afterId: 'n1',
+        roots: [
+          expect.objectContaining({ text: 'one' }),
+          expect.objectContaining({ text: 'two' }),
+        ],
+      }),
+    );
+  });
+
+  it('marks a GFM checkbox markdown item as completed', () => {
+    const { value } = renderRow(node('n1', [], { text: '' }));
+    const el = editable();
+    const clipboardData = fakeClipboardData({ 'text/plain': '- [x] done' });
+    fireEvent.paste(el, { clipboardData });
+    expect(value.dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'PASTE_OUTLINE',
+        roots: [expect.objectContaining({ text: 'done', completed: true })],
+      }),
+    );
+  });
+
+  it('splits an HTML list paste into bullets', () => {
+    const { value } = renderRow(node('n1', [], { text: '' }));
+    const el = editable();
+    const clipboardData = fakeClipboardData({
+      'text/html': '<ul><li>a</li><li>b</li></ul>',
+      'text/plain': 'a\nb',
+    });
+    fireEvent.paste(el, { clipboardData });
+    expect(value.dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'PASTE_OUTLINE',
+        roots: [expect.objectContaining({ text: 'a' }), expect.objectContaining({ text: 'b' })],
+      }),
+    );
+  });
+
+  it('falls back to plain text when pasted HTML has no list structure', () => {
+    const { value } = renderRow(node('n1', [], { text: '' }));
+    const el = editable();
+    const clipboardData = fakeClipboardData({ 'text/html': '<p>hello</p>', 'text/plain': 'hello' });
+    fireEvent.paste(el, { clipboardData });
+    expect(value.dispatch).toHaveBeenCalledWith({ type: 'SET_TEXT', id: 'n1', text: 'hello' });
+  });
+});
+
 function swipeLeft(el: HTMLElement, distance: number) {
   fireEvent.pointerDown(el, { pointerType: 'touch', pointerId: 1, clientX: 300, clientY: 100 });
   fireEvent.pointerMove(el, { pointerType: 'touch', pointerId: 1, clientX: 300 - distance, clientY: 100 });

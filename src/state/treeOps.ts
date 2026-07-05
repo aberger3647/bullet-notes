@@ -262,6 +262,18 @@ export function insertSiblingAfter(
   return insertIntoSiblings(roots, loc.siblings, loc.index + 1, newNode);
 }
 
+export function insertSiblingsAfter(
+  roots: BulletNode[],
+  afterId: string,
+  newNodes: BulletNode[],
+): BulletNode[] {
+  const loc = locateNode(roots, afterId);
+  if (!loc) return roots;
+  const copy = [...loc.siblings];
+  copy.splice(loc.index + 1, 0, ...newNodes);
+  return replaceSiblings(roots, loc.siblings, copy);
+}
+
 export function appendChild(roots: BulletNode[], parentId: string, child: BulletNode): BulletNode[] {
   const parentLoc = locateNode(roots, parentId);
   if (!parentLoc) return roots;
@@ -529,6 +541,8 @@ export function clampActionToSharedRoot(
       return action.id === rootId ? null : action;
     case 'PASTE_SUBTREE':
       return action.afterId === rootId ? null : action;
+    case 'PASTE_OUTLINE':
+      return action.afterId === rootId ? null : action;
     case 'INDENT':
     case 'OUTDENT':
     case 'DELETE_NODE':
@@ -670,6 +684,8 @@ export function getActionNodeIds(action: AppAction): string[] {
     case 'DUPLICATE_NODE':
       return [action.id, ...(action.newId ? [action.newId] : [])];
     case 'PASTE_SUBTREE':
+      return [action.afterId, ...(action.newId ? [action.newId] : [])];
+    case 'PASTE_OUTLINE':
       return [action.afterId, ...(action.newId ? [action.newId] : [])];
     case 'NEW_SIBLING_AFTER':
       return [action.afterId, ...(action.newId ? [action.newId] : [])];
