@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAppState } from '../hooks/useAppState';
+import { useBulletDragSelect } from '../hooks/useBulletDragSelect';
 import type { BulletNode } from '../state/types';
 import {
   isOnlyTopLevelNode,
@@ -11,6 +12,7 @@ import {
   parseOutlineClipboardJSON,
   serializeOutlineClipboardJSON,
   serializeOutlineClipboardText,
+  serializeSelectionClipboardText,
 } from '../state/treeOps';
 import { revokeSharesInSubtree } from '../sync/sharesApi';
 import { colorForClientId } from '../lib/presenceColor';
@@ -137,10 +139,14 @@ export function BulletRow({
     readOnly,
     otherPresences,
     selectedIds,
+    visibleOrder,
+    visibleChildren,
     selectRange,
+    clearSelection,
   } = useAppState();
   const editors = otherPresences.filter((p) => p.editingId === node.id);
   const isSelected = selectedIds.has(node.id);
+  const { onMouseDown: onDragSelectMouseDown } = useBulletDragSelect(node.id, selectRange, clearSelection);
   const editRef = useRef<HTMLDivElement>(null);
   const [shareBusy, setShareBusy] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
@@ -323,6 +329,12 @@ export function BulletRow({
   };
 
   const onCopy = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    if (selectedIds.size > 0) {
+      e.preventDefault();
+      const orderedIds = visibleOrder.filter((id) => selectedIds.has(id));
+      e.clipboardData.setData('text/plain', serializeSelectionClipboardText(visibleChildren, orderedIds));
+      return;
+    }
     const sel = window.getSelection();
     if (sel && !sel.isCollapsed) return; // let default text-selection copy proceed
     e.preventDefault();
@@ -378,6 +390,7 @@ export function BulletRow({
     <div
       ref={setNodeRef}
       style={style}
+      data-bullet-id={node.id}
       className={cn(
         'bullet-row',
         node.completed && 'completed',
@@ -475,6 +488,7 @@ export function BulletRow({
         onKeyDown={onKeyDown}
         onPaste={onPaste}
         onCopy={onCopy}
+        onMouseDown={onDragSelectMouseDown}
         onFocus={() => setEditingBullet(node.id, indentParentId)}
         onBlur={() => scheduleClearEditingBullet()}
       />

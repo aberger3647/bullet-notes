@@ -38,6 +38,7 @@ import {
   serializeOutlineClipboardText,
   serializeOutlineClipboardJSON,
   parseOutlineClipboardJSON,
+  serializeSelectionClipboardText,
   OUTLINE_CLIPBOARD_MIME,
   extractTags,
   collectAllTags,
@@ -580,6 +581,39 @@ describe('outline clipboard serialization', () => {
 
   it('exposes the custom clipboard mime type used to detect our own paste payloads', () => {
     expect(OUTLINE_CLIPBOARD_MIME).toBe('application/x-bullet-notes-outline');
+  });
+});
+
+describe('serializeSelectionClipboardText', () => {
+  it('serializes a flat, same-depth selection with no indentation', () => {
+    const roots = [node('a', [], { text: 'first' }), node('b', [], { text: 'second' }), node('c', [], { text: 'third' })];
+    expect(serializeSelectionClipboardText(roots, ['a', 'b', 'c'])).toBe('first\nsecond\nthird');
+  });
+
+  it('indents relative to the shallowest selected bullet, not absolute tree depth', () => {
+    const roots = [node('a', [node('b', [node('c')], { text: 'child' })], { text: 'root' })];
+    expect(serializeSelectionClipboardText(roots, ['b', 'c'])).toBe('child\n\tc');
+  });
+
+  it('preserves the given id order, not tree/document order', () => {
+    const roots = [node('a', [], { text: 'first' }), node('b', [], { text: 'second' })];
+    expect(serializeSelectionClipboardText(roots, ['b', 'a'])).toBe('second\nfirst');
+  });
+
+  it('flattens embedded newlines the same way as serializeOutlineClipboardText', () => {
+    const roots = [node('a', [], { text: 'line1\nline2' })];
+    expect(serializeSelectionClipboardText(roots, ['a'])).toBe('line1 line2');
+  });
+
+  it('skips ids that no longer resolve in roots, instead of throwing', () => {
+    const roots = [node('a', [], { text: 'first' })];
+    expect(serializeSelectionClipboardText(roots, ['a', 'missing'])).toBe('first');
+  });
+
+  it('returns empty string when no ids resolve', () => {
+    const roots = [node('a', [], { text: 'first' })];
+    expect(serializeSelectionClipboardText(roots, [])).toBe('');
+    expect(serializeSelectionClipboardText(roots, ['missing'])).toBe('');
   });
 });
 

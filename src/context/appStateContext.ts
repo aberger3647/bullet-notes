@@ -31,6 +31,7 @@ export type AppStateContextValue = {
   scheduleClearEditingBullet: () => void;
   keepEditingBullet: () => void;
   selectedIds: Set<string>;
+  visibleOrder: string[];
   selectRange: (id: string) => void;
   clearSelection: () => void;
   bulkIndent: () => void;

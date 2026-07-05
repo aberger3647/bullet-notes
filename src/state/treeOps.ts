@@ -637,6 +637,24 @@ export function serializeOutlineClipboardJSON(node: BulletNode): string {
   return JSON.stringify(cloneSubtree(node));
 }
 
+/**
+ * Tab-indented outline for a flat multi-id selection (whole-bullet range selection), in
+ * the given order. Depth is relative — the shallowest selected bullet becomes indent 0.
+ * Ids that no longer resolve in `roots` are skipped, not thrown.
+ */
+export function serializeSelectionClipboardText(roots: BulletNode[], ids: string[]): string {
+  const resolved = ids
+    .map((id) => {
+      const n = findNodeById(roots, id);
+      if (!n) return null;
+      return { text: n.text, depth: getZoomPathToNode(roots, id).length };
+    })
+    .filter((r): r is { text: string; depth: number } => r !== null);
+  if (resolved.length === 0) return '';
+  const minDepth = Math.min(...resolved.map((r) => r.depth));
+  return resolved.map((r) => '\t'.repeat(r.depth - minDepth) + r.text.replace(/\n/g, ' ')).join('\n');
+}
+
 function isBulletNodeShape(value: unknown): value is BulletNode {
   if (!value || typeof value !== 'object') return false;
   const n = value as Record<string, unknown>;

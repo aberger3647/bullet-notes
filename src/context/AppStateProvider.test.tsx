@@ -116,6 +116,17 @@ describe('AppStateProvider selection', () => {
     expect(getContext().selectedIds).toEqual(new Set(['b', 'c', 'd']));
   });
 
+  it('extends the range correctly even when selectRange is called twice in the same synchronous batch (e.g. a drag gesture crossing two bullets in one event)', () => {
+    const { getContext } = renderWithProvider(<div />, {
+      seed: seed([node('a'), node('b'), node('c'), node('d')]),
+    });
+    act(() => {
+      getContext().selectRange('a');
+      getContext().selectRange('c');
+    });
+    expect(getContext().selectedIds).toEqual(new Set(['a', 'b', 'c']));
+  });
+
   it('clearSelection empties the selection and resets the anchor', () => {
     const { getContext } = renderWithProvider(<div />, { seed: seed([node('a'), node('b')]) });
     act(() => getContext().selectRange('a'));

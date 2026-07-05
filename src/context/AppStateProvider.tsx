@@ -425,35 +425,38 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
   }, []);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null);
+  // A ref (not state) because selectRange can be called multiple times within the same
+  // synchronous event (e.g. a drag gesture crossing several bullets in one mousemove handler),
+  // and state set during one call wouldn't be visible to a later call in that same batch.
+  const selectionAnchorRef = useRef<string | null>(null);
   const visibleOrder = useMemo(
     () => getVisibleOrder(getVisibleForView(state), expanded, state.settings.hideCompleted),
     [state, expanded],
   );
 
   const clearSelection = useCallback(() => {
-    setSelectionAnchor(null);
+    selectionAnchorRef.current = null;
     setSelectedIds(new Set());
   }, []);
 
   const selectRange = useCallback(
     (id: string) => {
-      if (!selectionAnchor) {
-        setSelectionAnchor(id);
+      if (!selectionAnchorRef.current) {
+        selectionAnchorRef.current = id;
         setSelectedIds(new Set([id]));
         return;
       }
-      const aIdx = visibleOrder.indexOf(selectionAnchor);
+      const aIdx = visibleOrder.indexOf(selectionAnchorRef.current);
       const bIdx = visibleOrder.indexOf(id);
       if (aIdx === -1 || bIdx === -1) {
-        setSelectionAnchor(id);
+        selectionAnchorRef.current = id;
         setSelectedIds(new Set([id]));
         return;
       }
       const [lo, hi] = aIdx <= bIdx ? [aIdx, bIdx] : [bIdx, aIdx];
       setSelectedIds(new Set(visibleOrder.slice(lo, hi + 1)));
     },
-    [selectionAnchor, visibleOrder],
+    [visibleOrder],
   );
 
   const bulkIndent = useCallback(() => {
@@ -555,6 +558,7 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
       scheduleClearEditingBullet,
       keepEditingBullet,
       selectedIds,
+      visibleOrder,
       selectRange,
       clearSelection,
       bulkIndent,
@@ -586,6 +590,7 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
       scheduleClearEditingBullet,
       keepEditingBullet,
       selectedIds,
+      visibleOrder,
       selectRange,
       clearSelection,
       bulkIndent,

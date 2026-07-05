@@ -47,6 +47,7 @@ export function makeContextValue(
     scheduleClearEditingBullet: vi.fn(),
     keepEditingBullet: vi.fn(),
     selectedIds: new Set<string>(),
+    visibleOrder: [],
     selectRange: vi.fn(),
     clearSelection: vi.fn(),
     bulkIndent: vi.fn(),

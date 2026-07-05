@@ -197,6 +197,35 @@ describe('BulletRow Cmd/Ctrl+Backspace (explicit delete)', () => {
   });
 });
 
+describe('BulletRow drag-to-select (mouse)', () => {
+  it('dragging from one bullet into another calls selectRange for both, in order', () => {
+    const selectRange = vi.fn();
+    const clearSelection = vi.fn();
+    const { container } = renderWithContext(
+      inDnd(
+        <>
+          <BulletRow node={node('a')} expanded={false} onToggleExpand={() => {}} />
+          <BulletRow node={node('b')} expanded={false} onToggleExpand={() => {}} />
+        </>,
+        ['a', 'b'],
+      ),
+      { selectRange, clearSelection },
+    );
+
+    const rows = container.querySelectorAll('.bullet-row');
+    const rowA = rows[0] as HTMLElement;
+    const rowB = rows[1] as HTMLElement;
+    const editableA = rowA.querySelector('.bullet-input') as HTMLElement;
+
+    fireEvent.mouseDown(editableA, { button: 0 });
+    document.elementFromPoint = vi.fn().mockReturnValue(rowB);
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 0, clientY: 0 }));
+
+    expect(selectRange).toHaveBeenNthCalledWith(1, 'a');
+    expect(selectRange).toHaveBeenNthCalledWith(2, 'b');
+  });
+});
+
 describe('BulletRow copy (subtree)', () => {
   it('copies the whole bullet + children as a readable outline and as structured JSON, when nothing is text-selected', () => {
     const { value } = renderRow(node('n1', [node('c', [], { text: 'child' })], { text: 'parent' }));
@@ -221,6 +250,41 @@ describe('BulletRow copy (subtree)', () => {
     const clipboardData = fakeClipboardData();
     fireEvent.copy(el, { clipboardData });
     expect(clipboardData._store['text/plain']).toBeUndefined();
+    expect(value.dispatch).not.toHaveBeenCalled();
+  });
+
+  it('copies a multi-bullet selection as tab-indented text, taking priority over subtree copy', () => {
+    const tree = [node('a', [], { text: 'first' }), node('b', [], { text: 'second' })];
+    const { value } = renderRow(node('a', [], { text: 'first' }), {}, {
+      selectedIds: new Set(['a', 'b']),
+      visibleOrder: ['a', 'b'],
+      visibleChildren: tree,
+    });
+    const el = editable();
+    setCaretAtStart(el);
+    const clipboardData = fakeClipboardData();
+    fireEvent.copy(el, { clipboardData });
+    expect(clipboardData._store['text/plain']).toBe('first\nsecond');
+    expect(clipboardData._store['application/x-bullet-notes-outline']).toBeUndefined();
+    expect(value.dispatch).not.toHaveBeenCalled();
+  });
+
+  it('multi-select copy takes priority even when there is also an active native text selection', () => {
+    const tree = [node('a', [], { text: 'first' }), node('b', [], { text: 'second' })];
+    const { value } = renderRow(node('a', [], { text: 'first' }), {}, {
+      selectedIds: new Set(['a', 'b']),
+      visibleOrder: ['a', 'b'],
+      visibleChildren: tree,
+    });
+    const el = editable();
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range); // non-collapsed selection — should still lose to the multi-select branch
+    const clipboardData = fakeClipboardData();
+    fireEvent.copy(el, { clipboardData });
+    expect(clipboardData._store['text/plain']).toBe('first\nsecond');
     expect(value.dispatch).not.toHaveBeenCalled();
   });
 });
