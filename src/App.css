@@ -27,6 +27,86 @@
   flex: 1;
 }
 
+/* Zoom navigation: gives the outline and title a directional slide instead of an
+   instant swap when zooming into a bullet or stepping back out via the breadcrumb. */
+.bullet-list {
+  view-transition-name: bullet-list;
+}
+
+.zoom-title {
+  view-transition-name: zoom-title;
+}
+
+::view-transition-group(root) {
+  animation-duration: 200ms;
+}
+
+::view-transition-group(bullet-list),
+::view-transition-group(zoom-title) {
+  animation-duration: 220ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+::view-transition-old(bullet-list),
+::view-transition-new(bullet-list) {
+  animation-duration: 220ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html[data-zoom-direction='forward']::view-transition-old(bullet-list) {
+  animation-name: zoom-list-exit-forward;
+}
+
+html[data-zoom-direction='forward']::view-transition-new(bullet-list) {
+  animation-name: zoom-list-enter-forward;
+}
+
+html[data-zoom-direction='backward']::view-transition-old(bullet-list) {
+  animation-name: zoom-list-exit-backward;
+}
+
+html[data-zoom-direction='backward']::view-transition-new(bullet-list) {
+  animation-name: zoom-list-enter-backward;
+}
+
+@keyframes zoom-list-enter-forward {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+
+@keyframes zoom-list-exit-forward {
+  to {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+}
+
+@keyframes zoom-list-enter-backward {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+}
+
+@keyframes zoom-list-exit-backward {
+  to {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(root),
+  ::view-transition-group(bullet-list),
+  ::view-transition-group(zoom-title),
+  ::view-transition-old(bullet-list),
+  ::view-transition-new(bullet-list) {
+    animation: none !important;
+  }
+}
+
 .add-bullet-fab,
 .settings-fab {
   bottom: max(1rem, env(safe-area-inset-bottom, 0px));

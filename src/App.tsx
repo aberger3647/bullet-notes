@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { runZoomTransition } from '@/lib/zoomTransition';
 import './App.css';
 
 function syncStatusLabel(status: string, otherEditors: number): string {
@@ -141,7 +142,7 @@ function Shell() {
               size="icon-sm"
               aria-label="Home"
               className={cn(state.zoomPath.length === 0 && 'text-foreground font-semibold')}
-              onClick={() => dispatch({ type: 'ZOOM_TO_LEVEL', level: 0 })}
+              onClick={() => runZoomTransition('backward', () => dispatch({ type: 'ZOOM_TO_LEVEL', level: 0 }))}
             >
               <Home className="size-4" aria-hidden />
             </Button>
@@ -160,7 +161,9 @@ function Shell() {
                     variant="ghost"
                     size="sm"
                     className={cn(isLast && 'text-foreground font-semibold', isLast && 'cursor-default')}
-                    onClick={() => dispatch({ type: 'ZOOM_TO_LEVEL', level: i + 1 })}
+                    onClick={() =>
+                      runZoomTransition('backward', () => dispatch({ type: 'ZOOM_TO_LEVEL', level: i + 1 }))
+                    }
                   >
                     {short}
                   </Button>
@@ -170,7 +173,7 @@ function Shell() {
           </nav>
         </div>
 
-        {title !== null && <h1 className="mt-1 text-2xl font-semibold text-balance">{title}</h1>}
+        {title !== null && <h1 className="zoom-title mt-1 text-2xl font-semibold text-balance">{title}</h1>}
       </header>
 
       <main className="app-main">

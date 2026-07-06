@@ -17,6 +17,7 @@ import { revokeSharesInSubtree } from '../sync/sharesApi';
 import { colorForClientId } from '../lib/presenceColor';
 import { looksLikeOutlineText, parseImportedOutline } from '../lib/importOutline';
 import { htmlHasListStructure, parseHtmlOutline } from '../lib/htmlOutline';
+import { runZoomTransition } from '../lib/zoomTransition';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -448,11 +449,16 @@ export function BulletRow({
             selectRange(node.id);
             return;
           }
-          dispatch({
-            type: 'ZOOM_INTO',
-            id: node.id,
-            ...(hasChildren || readOnly ? {} : { newChildId: crypto.randomUUID() }),
-          });
+          runZoomTransition(
+            'forward',
+            () =>
+              dispatch({
+                type: 'ZOOM_INTO',
+                id: node.id,
+                ...(hasChildren || readOnly ? {} : { newChildId: crypto.randomUUID() }),
+              }),
+            editRef.current,
+          );
         }}
         {...(readOnly ? {} : attributes)}
         {...(readOnly ? {} : listeners)}
