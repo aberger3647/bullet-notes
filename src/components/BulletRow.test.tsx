@@ -406,6 +406,33 @@ describe('BulletRow swipe-to-delete (mobile)', () => {
   });
 });
 
+describe('BulletRow marker vs. swipe-to-delete (touch pointer conflict)', () => {
+  it('a touch pointerdown starting on the drag handle does not arm the row swipe tracker', () => {
+    const { value, container } = renderWithContext(
+      <DndContext sensors={[]}>
+        <SortableContext items={['n1']}>
+          <BulletRow node={node('n1', [], { text: 'hello' })} expanded={false} onToggleExpand={() => {}} />
+        </SortableContext>
+      </DndContext>,
+    );
+    const marker = screen.getByRole('button', { name: 'Open sub-bullets in page view' });
+    const row = container.querySelector('.bullet-row') as HTMLElement;
+
+    // Same physical gesture as `swipeLeft` above, except the touch starts on the drag handle (a
+    // descendant of .bullet-row) instead of directly on the row — reproducing the bubbling
+    // conflict: without the marker's stopPropagation fix, this pointerdown reaches
+    // onSwipePointerDown on the ancestor row and arms swipe-tracking, so a drag gesture that
+    // drifts left can accidentally delete the bullet being dragged.
+    fireEvent.pointerDown(marker, { pointerType: 'touch', pointerId: 1, clientX: 300, clientY: 100 });
+    fireEvent.pointerMove(row, { pointerType: 'touch', pointerId: 1, clientX: 200, clientY: 100 });
+    fireEvent.pointerUp(row, { pointerType: 'touch', pointerId: 1, clientX: 200, clientY: 100 });
+
+    expect(value.dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'DELETE_NODE' }),
+    );
+  });
+});
+
 describe('BulletRow read-only (view-only shared docs)', () => {
   it('renders the text as non-editable', () => {
     renderRow(node('n1', [], { text: 'hello' }), {}, { readOnly: true });

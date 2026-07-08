@@ -483,6 +483,13 @@ export function BulletRow({
         }}
         {...(readOnly ? {} : attributes)}
         {...(readOnly ? {} : listeners)}
+        // Stop this pointerdown from bubbling to the row's own swipe-to-delete tracker
+        // (onSwipePointerDown below) — without this, a touch-drag that starts here and drifts
+        // left past the swipe threshold can accidentally delete the bullet being dragged. Safe
+        // regardless of dnd-kit's sensors: they bind to this same element and, once armed, track
+        // subsequent movement via listeners attached directly to the document from inside the
+        // sensor itself, not by relying on this event bubbling further.
+        onPointerDown={(e) => e.stopPropagation()}
       >
         {hasChildren ? (
           <span className="bullet-marker-dot" aria-hidden />

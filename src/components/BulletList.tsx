@@ -3,7 +3,8 @@ import {
   DragOverlay,
   KeyboardSensor,
   MeasuringStrategy,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   closestCenter,
   useSensor,
   useSensors,
@@ -160,8 +161,15 @@ export function BulletList() {
   const [dragState, setDragState] = useState<DragState | null>(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
       activationConstraint: { distance: 6 },
+    }),
+    // Touch requires a deliberate hold (not just movement) before a drag starts, so an ordinary
+    // scroll or tap that happens to start on the marker isn't mistaken for a drag — the classic
+    // dnd-kit API can't vary this per pointer type on a single sensor, so it's a separate sensor
+    // instance rather than a branch inside PointerSensor's activationConstraint.
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 8 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
