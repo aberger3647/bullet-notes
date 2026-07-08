@@ -12,6 +12,10 @@ export type SharedWithMeItem = Pick<
 
 export const SHARED_WITH_ME_PAGE_SIZE = 20;
 
+export function isNewActivity(item: SharedWithMeItem): boolean {
+  return new Date(item.updated_at).getTime() > new Date(item.last_opened_at).getTime();
+}
+
 export async function recordShareOpen(shareToken: string): Promise<void> {
   const { error } = await supabase.rpc('bullet_notes_record_share_open', { p_share_token: shareToken });
   if (error) throw error;

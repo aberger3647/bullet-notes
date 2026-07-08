@@ -6,6 +6,7 @@ import { MobileEditToolbar } from './components/MobileEditToolbar';
 import { SelectionToolbar } from './components/SelectionToolbar';
 import { DocsPage } from './components/DocsPage';
 import { SettingsPanel } from './components/SettingsPanel';
+import { SharedWithMeSection } from './components/SharedWithMeSection';
 import { RequireAuth } from './components/RequireAuth';
 import { AppStateProvider } from './context/AppStateProvider';
 import { useAppState } from './hooks/useAppState';
@@ -202,6 +203,7 @@ function Shell() {
       </header>
 
       <main className="app-main">
+        <SharedWithMeSection />
         <BulletList />
       </main>
 

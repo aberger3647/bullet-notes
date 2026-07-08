@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 import type { BulletNode } from '../../src/state/types';
 import type { UserDocumentRow } from '../../src/sync/userDocumentApi';
 import type { DocumentRow } from '../../src/sync/documentApi';
+import type { SharedWithMeItem } from '../../src/sync/sharedWithMeApi';
 
 export const FAKE_USER_ID = '00000000-0000-0000-0000-000000000001';
 
@@ -77,6 +78,13 @@ export async function mockUserDocument(page: Page, initialTree: BulletNode[] = [
     const body = route.request().postDataJSON() as { p_tree?: BulletNode[] };
     if (body?.p_tree) tree = body.p_tree;
     await route.fulfill({ status: 200, contentType: 'application/json', body: 'null' });
+  });
+}
+
+/** Mocks the "shared with me" list RPC used by SharedWithMeSection and Settings. */
+export async function mockSharedWithMe(page: Page, items: SharedWithMeItem[]) {
+  await page.route('**/rest/v1/rpc/bullet_notes_list_shared_with_me', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(items) });
   });
 }
 

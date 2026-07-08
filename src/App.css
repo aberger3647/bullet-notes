@@ -435,6 +435,46 @@ html[data-theme='dark'] .bullet-marker--parent.bullet-marker--shared {
   outline-offset: 2px;
 }
 
+/* Shared-with-me section: a distinct hue from .bullet-marker--shared above (which marks
+   bullets *you've* shared out), so the two directions read as visually different at a glance. */
+.bullet-marker--leaf.bullet-marker--incoming-shared,
+.bullet-marker--parent.bullet-marker--incoming-shared {
+  background: color-mix(in oklch, oklch(62.3% 0.214 320) 15%, transparent);
+  cursor: pointer;
+}
+
+html[data-theme='dark'] .bullet-marker--leaf.bullet-marker--incoming-shared,
+html[data-theme='dark'] .bullet-marker--parent.bullet-marker--incoming-shared {
+  background: color-mix(in oklch, oklch(70.7% 0.165 320) 20%, transparent);
+}
+
+/* Whole-row buttons for the read-only "Shared with me" section (see SharedWithMeSection) —
+   reuses .bullet-row-content's flex/gap/padding layout but needs the browser's default button
+   chrome reset, since these rows are real <button>s rather than <div>s (there's no inline text
+   editing to protect here, so a single big click target is simpler than real rows' marker/text
+   split). */
+.shared-with-me-row-button {
+  width: 100%;
+  border: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.shared-with-me-row-button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+
+.shared-with-me-row-button .disclosure-triangle {
+  color: var(--muted-foreground);
+}
+
+.shared-with-me-triangle--open {
+  transform: rotate(90deg);
+}
+
 .bullet-marker-dot {
   display: block;
   width: 10px;
