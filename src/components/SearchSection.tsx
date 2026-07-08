@@ -3,7 +3,7 @@ import { useAppState } from '../hooks/useAppState';
 import { collectAllTags, searchBullets } from '../state/treeOps';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 type Props = {
   onNavigate?: () => void;
@@ -51,16 +51,11 @@ export function SearchSection({ onNavigate, focusToken }: Props) {
       {allTags.length > 0 ? (
         <div className="mb-2 flex flex-wrap gap-1.5" role="group" aria-label="Tags">
           {allTags.map((tag) => (
-            <Button
-              key={tag}
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="h-auto rounded-full px-2.5 py-0.5"
-              onClick={() => setQuery(`#${tag}`)}
-            >
-              #{tag}
-            </Button>
+            <Badge key={tag} asChild variant="secondary" className="cursor-pointer hover:bg-secondary/80">
+              <button type="button" onClick={() => setQuery(`#${tag}`)}>
+                #{tag}
+              </button>
+            </Badge>
           ))}
         </div>
       ) : null}

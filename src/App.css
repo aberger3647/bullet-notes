@@ -507,16 +507,6 @@ html[data-theme='dark'] .bullet-marker--parent.bullet-marker--incoming-shared {
   flex-shrink: 0;
 }
 
-.presence-badge {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  line-height: 1.4;
-  padding: 0 0.4rem;
-  border-radius: 999px;
-  color: oklch(0.985 0 0);
-  white-space: nowrap;
-}
-
 .bullet-input:focus,
 .bullet-input:focus-visible {
   outline: none;

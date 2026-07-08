@@ -20,6 +20,7 @@ import { looksLikeOutlineText, parseImportedOutline } from '../lib/importOutline
 import { htmlHasListStructure, parseHtmlOutline } from '../lib/htmlOutline';
 import { runZoomTransition } from '../lib/zoomTransition';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
@@ -522,9 +523,12 @@ export function BulletRow({
           {editors.map((p) => (
             <Tooltip key={p.clientId}>
               <TooltipTrigger asChild>
-                <span className="presence-badge" style={{ backgroundColor: colorForClientId(p.clientId) }}>
+                <Badge
+                  style={{ backgroundColor: colorForClientId(p.clientId) }}
+                  className="font-semibold text-white"
+                >
                   {p.displayName}
-                </span>
+                </Badge>
               </TooltipTrigger>
               <TooltipContent>{`${p.displayName} is editing this bullet`}</TooltipContent>
             </Tooltip>
@@ -535,9 +539,12 @@ export function BulletRow({
         <span className="presence-badges" aria-hidden={false}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="presence-badge" style={{ backgroundColor: colorForClientId(lastEditedByOther.name) }}>
+              <Badge
+                style={{ backgroundColor: colorForClientId(lastEditedByOther.name) }}
+                className="font-semibold text-white"
+              >
                 {lastEditedByOther.name}
-              </span>
+              </Badge>
             </TooltipTrigger>
             <TooltipContent>{`Last edited by ${lastEditedByOther.name} · ${new Date(lastEditedByOther.at).toLocaleString()}`}</TooltipContent>
           </Tooltip>
