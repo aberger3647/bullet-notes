@@ -12,11 +12,9 @@ import {
   replaceNodeInPlace,
   duplicateSubtree,
   mergeNodeIntoPrevious,
-  moveAsChild,
-  moveBeforeSibling,
+  moveNodeToPosition,
   outdentNode,
   removeNode,
-  reorderSiblings,
   sanitizeZoomPath,
   getChildrenForZoom,
   getZoomPathToNode,
@@ -348,19 +346,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return withCommit(state, { zoomPath, focusedId: action.id, focusCaret: 'all' });
     }
     case 'MOVE_NODE': {
-      const { activeId, overId, nest } = action;
-      if (activeId === overId) return state;
-
-      if (nest) {
-        const nextTree = moveAsChild(state.tree, activeId, overId);
-        if (nextTree === state.tree) return state;
-        return withCommit(state, { tree: nextTree });
-      }
-
-      // If within the same sibling list, reorder; otherwise insert before hovered node
-      // (allows dragging a child out to parent/grandparent/top-level levels).
-      const reordered = reorderSiblings(state.tree, activeId, overId);
-      const nextTree = reordered === state.tree ? moveBeforeSibling(state.tree, activeId, overId) : reordered;
+      const { activeId, newParentId, index } = action;
+      const nextTree = moveNodeToPosition(state.tree, activeId, newParentId, index);
       if (nextTree === state.tree) return state;
       return withCommit(state, { tree: nextTree });
     }

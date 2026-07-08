@@ -162,6 +162,65 @@ html[data-zoom-direction='backward']::view-transition-new(bullet-list) {
   overflow: hidden;
 }
 
+/* While dragging, the original row collapses to a thin placeholder sliver instead of just
+   dimming — a floating DragOverlay clone follows the pointer instead, so keeping the original
+   at full size would show the row twice. Safe to collapse: the sortable strategy measures each
+   row's rect once at drag start, not live from this now-shrunken DOM node. */
+.bullet-row--dragging {
+  height: 8px;
+  min-height: 0;
+  background: var(--accent);
+}
+
+.bullet-row--dragging .bullet-row-content {
+  visibility: hidden;
+}
+
+/* .bullet-row-content normally masks this (opaque background) even at rest; hiding the
+   content above removes that masking paint too, so it must be hidden explicitly here. */
+.bullet-row--dragging .bullet-row-swipe-action {
+  display: none;
+}
+
+/* Live drop indicator, rendered by whichever row is the current hover target — rides along
+   with the existing recursive rendering instead of a separately floated/measured element.
+   z-index wins over .bullet-row-content's own opaque background despite painting first in DOM
+   order (::before is the row's first child). */
+.bullet-row--drop-before::before,
+.bullet-row--drop-after::after {
+  content: '';
+  position: absolute;
+  left: var(--drop-indent, 0px);
+  right: 0.25rem;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--primary);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.bullet-row--drop-before::before {
+  top: 0;
+}
+
+.bullet-row--drop-after::after {
+  bottom: 0;
+}
+
+/* Applied to .bullet-row-content, not .bullet-row itself — .bullet-row-content's own opaque
+   background (needed to mask the swipe-to-delete layer at rest) would otherwise paint over a
+   box-shadow/outline declared on the parent. */
+.bullet-row--drop-nest .bullet-row-content {
+  box-shadow: inset 0 0 0 2px var(--primary);
+  border-radius: 6px;
+}
+
+.bullet-row-overlay {
+  box-shadow: 0 4px 16px oklch(0% 0 0 / 0.18);
+  cursor: grabbing;
+  pointer-events: none;
+}
+
 .bullet-row-swipe-action {
   position: absolute;
   inset: 0;

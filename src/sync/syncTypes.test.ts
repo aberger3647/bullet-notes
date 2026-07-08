@@ -11,7 +11,7 @@ describe('isSyncableAction', () => {
     { type: 'INDENT', id: 'x' },
     { type: 'OUTDENT', id: 'x' },
     { type: 'TOGGLE_COMPLETE', id: 'x' },
-    { type: 'MOVE_NODE', activeId: 'a', overId: 'o', nest: false },
+    { type: 'MOVE_NODE', activeId: 'a', newParentId: 'p', index: 0 },
     { type: 'DELETE_NODE', id: 'x' },
     { type: 'MERGE_WITH_PREVIOUS', id: 'x', targetId: 'y' },
     { type: 'DUPLICATE_NODE', id: 'x' },

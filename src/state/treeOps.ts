@@ -158,24 +158,42 @@ export function isDescendantOf(
   return walk(ancestor.children);
 }
 
+export type FlattenedRow = { id: string; depth: number; parentId: string | null };
+
+/**
+ * Depth-first, on-screen visible order with depth/parent metadata attached — same traversal
+ * rule as rendering (filter completed, recurse only into expanded nodes). `excludeSubtreeOf`
+ * hides a node's own descendants, e.g. while it's the node being dragged, so its own subtree
+ * can never be a drop target for itself.
+ */
+export function flattenVisibleTree(
+  nodes: BulletNode[],
+  expanded: Set<string>,
+  hideCompleted: boolean,
+  excludeSubtreeOf?: string,
+): FlattenedRow[] {
+  const out: FlattenedRow[] = [];
+  const walk = (list: BulletNode[], parentId: string | null, depth: number) => {
+    const visible = hideCompleted ? list.filter((n) => !n.completed) : list;
+    for (const n of visible) {
+      out.push({ id: n.id, depth, parentId });
+      if (n.id === excludeSubtreeOf) continue;
+      if (n.children.length > 0 && expanded.has(n.id)) {
+        walk(n.children, n.id, depth + 1);
+      }
+    }
+  };
+  walk(nodes, null, 0);
+  return out;
+}
+
 /** Ids of nodes actually rendered, in on-screen (depth-first) order — for arrow-key navigation. */
 export function getVisibleOrder(
   nodes: BulletNode[],
   expanded: Set<string>,
   hideCompleted: boolean,
 ): string[] {
-  const out: string[] = [];
-  const walk = (list: BulletNode[]) => {
-    const visible = hideCompleted ? list.filter((n) => !n.completed) : list;
-    for (const n of visible) {
-      out.push(n.id);
-      if (n.children.length > 0 && expanded.has(n.id)) {
-        walk(n.children);
-      }
-    }
-  };
-  walk(nodes);
-  return out;
+  return flattenVisibleTree(nodes, expanded, hideCompleted).map((r) => r.id);
 }
 
 /** Hide completed nodes at each level (and thus their subtrees in this view). */
@@ -418,71 +436,45 @@ export function setNodeText(roots: BulletNode[], id: string, text: string): Bull
   return replaceSiblings(roots, loc.siblings, siblings);
 }
 
-export function moveAsChild(
+/**
+ * Move `activeId` to become the child at `index` of `newParentId` (or, when `newParentId` is
+ * `null`, the root list), removing it from wherever it currently lives first. `index` is a
+ * post-removal splice index (same convention as `insertIntoSiblings`) and is clamped to the
+ * destination list's length, so an out-of-range index appends rather than producing a sparse
+ * array. Subsumes the old moveAsChild/moveBeforeSibling/reorderSiblings split — every drag
+ * outcome (nest, same-parent reorder, cross-parent move) is just a specific (newParentId, index)
+ * pair now, computed by the drag UI's live projection rather than branched on here.
+ */
+export function moveNodeToPosition(
   roots: BulletNode[],
   activeId: string,
-  newParentId: string,
+  newParentId: string | null,
+  index: number,
 ): BulletNode[] {
   if (activeId === newParentId) return roots;
-  if (isDescendantOf(roots, newParentId, activeId)) return roots;
-  const activeLoc = locateNode(roots, activeId);
-  const parentLoc = locateNode(roots, newParentId);
-  if (!activeLoc || !parentLoc) return roots;
-  const subtree = cloneSubtree(activeLoc.node);
-  const roots2 = removeNode(roots, activeId);
-  const parentAfter = locateNode(roots2, newParentId);
-  if (!parentAfter) return roots;
-  const newParent: BulletNode = {
-    ...parentAfter.node,
-    children: [...parentAfter.node.children, subtree],
-  };
-  const sibs = [...parentAfter.siblings];
-  sibs[parentAfter.index] = newParent;
-  return replaceSiblings(roots2, parentAfter.siblings, sibs);
-}
+  if (newParentId !== null && isDescendantOf(roots, newParentId, activeId)) return roots;
 
-/**
- * Move `activeId` to become a sibling of `overId` (inserted before it),
- * even if they're currently under different parents. This enables drag moves
- * to parent/grandparent/top-level levels without requiring a nest drop.
- */
-export function moveBeforeSibling(
-  roots: BulletNode[],
-  activeId: string,
-  overId: string,
-): BulletNode[] {
-  if (activeId === overId) return roots;
   const activeLoc = locateNode(roots, activeId);
-  const overLoc = locateNode(roots, overId);
-  if (!activeLoc || !overLoc) return roots;
-  if (isDescendantOf(roots, overId, activeId)) return roots;
+  if (!activeLoc) return roots;
+  if (newParentId !== null && !locateNode(roots, newParentId)) return roots;
+
+  const currentParentId = activeLoc.parent?.id ?? null;
+  if (currentParentId === newParentId && activeLoc.index === index) return roots;
 
   const subtree = cloneSubtree(activeLoc.node);
-  const roots2 = removeNode(roots, activeId);
-  const overLoc2 = locateNode(roots2, overId);
-  if (!overLoc2) return roots;
+  const rootsAfterRemove = removeNode(roots, activeId);
 
-  return insertIntoSiblings(roots2, overLoc2.siblings, overLoc2.index, subtree);
-}
+  if (newParentId === null) {
+    const clamped = Math.max(0, Math.min(index, rootsAfterRemove.length));
+    const copy = [...rootsAfterRemove];
+    copy.splice(clamped, 0, subtree);
+    return copy;
+  }
 
-/** Reorder among shared siblings (same parent list reference). */
-export function reorderSiblings(roots: BulletNode[], activeId: string, overId: string): BulletNode[] {
-  if (activeId === overId) return roots;
-  const activeLoc = locateNode(roots, activeId);
-  const overLoc = locateNode(roots, overId);
-  if (!activeLoc || !overLoc || activeLoc.siblings !== overLoc.siblings) return roots;
-  const oldIndex = activeLoc.index;
-  const newIndex = overLoc.index;
-  if (oldIndex === newIndex) return roots;
-  const moved = arrayMove([...activeLoc.siblings], oldIndex, newIndex);
-  return replaceSiblings(roots, activeLoc.siblings, moved);
-}
-
-function arrayMove<T>(arr: T[], from: number, to: number): T[] {
-  const copy = [...arr];
-  const [item] = copy.splice(from, 1);
-  copy.splice(to, 0, item);
-  return copy;
+  const parentLoc = locateNode(rootsAfterRemove, newParentId);
+  if (!parentLoc) return roots;
+  const clamped = Math.max(0, Math.min(index, parentLoc.node.children.length));
+  return insertIntoSiblings(rootsAfterRemove, parentLoc.node.children, clamped, subtree);
 }
 
 export type SharedRoot = { id: string; shareToken: string };
@@ -564,7 +556,7 @@ export function clampActionToSharedRoot(
       return action;
     case 'MOVE_NODE':
       if (action.activeId === rootId) return null;
-      if (!action.nest && action.overId === rootId) return null;
+      if (action.newParentId === null) return null;
       return action;
     default:
       return action;
@@ -761,7 +753,7 @@ export function getActionNodeIds(action: AppAction): string[] {
     case 'APPEND_CHILD':
       return [action.parentId, ...(action.newId ? [action.newId] : [])];
     case 'MOVE_NODE':
-      return [action.activeId, action.overId];
+      return action.newParentId === null ? [action.activeId] : [action.activeId, action.newParentId];
     default:
       return [];
   }

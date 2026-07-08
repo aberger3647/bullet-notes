@@ -1,6 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAppState } from '../hooks/useAppState';
@@ -13,6 +13,7 @@ import {
   serializeOutlineClipboardJSON,
   serializeOutlineClipboardText,
 } from '../state/treeOps';
+import { INDENT_WIDTH_PX } from '../state/dragProjection';
 import { revokeSharesInSubtree } from '../sync/sharesApi';
 import { colorForClientId } from '../lib/presenceColor';
 import { looksLikeOutlineText, parseImportedOutline } from '../lib/importOutline';
@@ -24,6 +25,16 @@ import { cn } from '@/lib/utils';
 
 const SWIPE_REVEAL_MAX = -88;
 const SWIPE_DELETE_THRESHOLD = -72;
+
+/** Live drag state broadcast from BulletList to every row, so the currently-dragged and
+ *  currently-hovered rows can render their own overlay/indicator styling. */
+export type DragState = {
+  activeId: string;
+  overId: string | null;
+  depth: number;
+  parentId: string | null;
+  insertion: 'before' | 'after';
+};
 
 export type BulletRowProps = {
   node: BulletNode;
@@ -37,6 +48,7 @@ export type BulletRowProps = {
   /** Id of the previous/next bullet in on-screen order, for ArrowUp/ArrowDown navigation. */
   prevVisibleId?: string;
   nextVisibleId?: string;
+  dragState?: DragState | null;
 };
 
 function selectAllContents(el: HTMLElement) {
@@ -129,6 +141,7 @@ export function BulletRow({
   childRegionId,
   prevVisibleId,
   nextVisibleId,
+  dragState = null,
 }: BulletRowProps) {
   const {
     state,
@@ -191,11 +204,14 @@ export function BulletRow({
     }
   }, [state.focusedId, state.focusCaret, node.id, dispatch]);
 
+  const isDropTarget = dragState?.overId === node.id;
+  const isNestTarget = isDropTarget && dragState?.parentId === node.id;
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.55 : 1,
-  };
+    ...(isDropTarget ? { '--drop-indent': `${(dragState?.depth ?? 0) * INDENT_WIDTH_PX}px` } : {}),
+  } as CSSProperties;
 
   const commitText = (el: HTMLDivElement) => {
     const raw = el.textContent ?? '';
@@ -390,6 +406,9 @@ export function BulletRow({
         node.completed && 'completed',
         isShared && 'bullet-row--shared',
         isSelected && 'bullet-row--selected',
+        isDragging && 'bullet-row--dragging',
+        isNestTarget && 'bullet-row--drop-nest',
+        isDropTarget && !isNestTarget && `bullet-row--drop-${dragState!.insertion}`,
       )}
       onPointerDown={onSwipePointerDown}
       onPointerMove={onSwipePointerMove}
@@ -517,6 +536,29 @@ export function BulletRow({
           </Tooltip>
         </span>
       ) : null}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Non-interactive clone rendered inside dnd-kit's DragOverlay while a row is being dragged. Not
+ * a reused BulletRow — that would register a second, conflicting useSortable hook for the same
+ * node id inside the overlay's portal.
+ */
+export function BulletRowOverlay({ node }: { node: BulletNode }) {
+  const hasChildren = node.children.length > 0;
+  return (
+    <div className="bullet-row bullet-row-overlay" aria-hidden>
+      <div className="bullet-row-content">
+        <div className="share-slot" />
+        <div className="disclosure-slot">
+          {hasChildren ? <span className="disclosure-triangle" /> : <span className="disclosure-spacer" />}
+        </div>
+        <span className={cn('bullet-marker', hasChildren ? 'bullet-marker--parent' : 'bullet-marker--leaf')}>
+          {hasChildren ? <span className="bullet-marker-dot" /> : <span className="bullet-marker-ring" />}
+        </span>
+        <div className="bullet-input">{node.text}</div>
       </div>
     </div>
   );

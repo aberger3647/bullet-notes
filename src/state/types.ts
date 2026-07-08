@@ -71,9 +71,10 @@ export type AppAction =
   | {
       type: 'MOVE_NODE';
       activeId: string;
-      overId: string;
-      /** true = make active last child of over; false = reorder among siblings */
-      nest: boolean;
+      /** null = top level */
+      newParentId: string | null;
+      /** index among newParentId's children (or the root list) after the move */
+      index: number;
     };
 
 export const MAX_HISTORY = 50;

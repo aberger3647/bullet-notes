@@ -490,33 +490,33 @@ describe('NAVIGATE_TO_BULLET', () => {
 });
 
 describe('MOVE_NODE', () => {
-  it('nests a node as a child when nest=true', () => {
+  it('nests a node as the last child of a new parent', () => {
     const s = stateWith([node('a', [node('a1')]), node('b')]);
-    const next = appReducer(s, { type: 'MOVE_NODE', activeId: 'b', overId: 'a', nest: true });
+    const next = appReducer(s, { type: 'MOVE_NODE', activeId: 'b', newParentId: 'a', index: 1 });
     expect(next.tree.map((n) => n.id)).toEqual(['a']);
     expect(next.tree[0]!.children.map((n) => n.id)).toEqual(['a1', 'b']);
   });
 
-  it('reorders siblings when nest=false and same parent', () => {
+  it('reorders siblings within the same parent', () => {
     const s = stateWith([node('a'), node('b'), node('c')]);
-    const next = appReducer(s, { type: 'MOVE_NODE', activeId: 'a', overId: 'c', nest: false });
+    const next = appReducer(s, { type: 'MOVE_NODE', activeId: 'a', newParentId: null, index: 2 });
     expect(next.tree.map((n) => n.id)).toEqual(['b', 'c', 'a']);
   });
 
-  it('moves before a sibling across parents when nest=false', () => {
+  it('moves a node to a specific top-level index across parents', () => {
     const s = stateWith([node('a', [node('a1')]), node('b')]);
-    const next = appReducer(s, { type: 'MOVE_NODE', activeId: 'a1', overId: 'b', nest: false });
+    const next = appReducer(s, { type: 'MOVE_NODE', activeId: 'a1', newParentId: null, index: 1 });
     expect(next.tree.map((n) => n.id)).toEqual(['a', 'a1', 'b']);
   });
 
-  it('is a no-op when active === over', () => {
+  it('is a no-op when already at the same parent and index', () => {
     const s = stateWith([node('a'), node('b')]);
-    expect(appReducer(s, { type: 'MOVE_NODE', activeId: 'a', overId: 'a', nest: false })).toBe(s);
+    expect(appReducer(s, { type: 'MOVE_NODE', activeId: 'a', newParentId: null, index: 0 })).toBe(s);
   });
 
   it('is a no-op when nesting into own descendant', () => {
     const s = stateWith(threeLevel());
-    expect(appReducer(s, { type: 'MOVE_NODE', activeId: 'a', overId: 'c', nest: true })).toBe(s);
+    expect(appReducer(s, { type: 'MOVE_NODE', activeId: 'a', newParentId: 'c', index: 0 })).toBe(s);
   });
 });
 

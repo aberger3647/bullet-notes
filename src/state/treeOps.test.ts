@@ -24,9 +24,8 @@ import {
   outdentNode,
   toggleComplete,
   setNodeText,
-  moveAsChild,
-  moveBeforeSibling,
-  reorderSiblings,
+  moveNodeToPosition,
+  flattenVisibleTree,
   collectSharedRoots,
   getShareRootsForNode,
   isUnderSharedRoot,
@@ -369,63 +368,65 @@ describe('setNodeText', () => {
   });
 });
 
-describe('moveAsChild', () => {
-  it('moves a node to become the last child of the new parent', () => {
+describe('moveNodeToPosition', () => {
+  it('moves a node to become the last child of a new parent', () => {
     const tree = [node('a', [node('a1')]), node('b')];
-    const next = moveAsChild(tree, 'b', 'a');
+    const next = moveNodeToPosition(tree, 'b', 'a', 1);
     expect(next.map((n) => n.id)).toEqual(['a']);
     expect(next[0]!.children.map((n) => n.id)).toEqual(['a1', 'b']);
   });
 
-  it('is a no-op when moving a node into itself', () => {
-    const tree = [node('a')];
-    expect(moveAsChild(tree, 'a', 'a')).toBe(tree);
-  });
-
-  it('is a no-op when moving a node into its own descendant', () => {
-    const tree = threeLevel(); // a > b > c
-    expect(moveAsChild(tree, 'a', 'c')).toBe(tree);
-  });
-
-  it('returns the same reference when a node is missing', () => {
-    const tree = [node('a')];
-    expect(moveAsChild(tree, 'a', 'nope')).toBe(tree);
-  });
-});
-
-describe('moveBeforeSibling', () => {
-  it('moves a node before the target across parents', () => {
+  it('moves a node to a specific top-level index, across parents', () => {
     const tree = [node('a', [node('a1')]), node('b')];
-    const next = moveBeforeSibling(tree, 'a1', 'b');
+    const next = moveNodeToPosition(tree, 'a1', null, 1);
     expect(next.map((n) => n.id)).toEqual(['a', 'a1', 'b']);
     expect(next[0]!.children).toEqual([]);
   });
 
-  it('is a no-op when moving before its own descendant', () => {
-    const tree = threeLevel();
-    expect(moveBeforeSibling(tree, 'a', 'c')).toBe(tree);
-  });
-
-  it('returns the same reference for a missing node', () => {
-    const tree = [node('a'), node('b')];
-    expect(moveBeforeSibling(tree, 'a', 'nope')).toBe(tree);
-  });
-});
-
-describe('reorderSiblings', () => {
   it('reorders within the same sibling list', () => {
     const tree = [node('a'), node('b'), node('c')];
-    expect(ids(reorderSiblings(tree, 'a', 'c'))).toEqual(['b', 'c', 'a']);
+    expect(ids(moveNodeToPosition(tree, 'a', null, 2))).toEqual(['b', 'c', 'a']);
   });
 
-  it('returns the same reference across different parents (caller falls back)', () => {
-    const tree = [node('a', [node('a1')]), node('b')];
-    expect(reorderSiblings(tree, 'a1', 'b')).toBe(tree);
+  it('is a no-op when moving a node into itself', () => {
+    const tree = [node('a')];
+    expect(moveNodeToPosition(tree, 'a', 'a', 0)).toBe(tree);
   });
 
-  it('returns the same reference when active === over', () => {
+  it('is a no-op when moving a node into its own descendant', () => {
+    const tree = threeLevel(); // a > b > c
+    expect(moveNodeToPosition(tree, 'a', 'c', 0)).toBe(tree);
+  });
+
+  it('is a no-op when the target parent is any descendant of the node being moved', () => {
+    const tree = threeLevel(); // a > b > c
+    expect(moveNodeToPosition(tree, 'a', 'b', 0)).toBe(tree);
+  });
+
+  it('returns the same reference when the new parent is missing', () => {
+    const tree = [node('a')];
+    expect(moveNodeToPosition(tree, 'a', 'nope', 0)).toBe(tree);
+  });
+
+  it('returns the same reference when the active node is missing', () => {
     const tree = [node('a'), node('b')];
-    expect(reorderSiblings(tree, 'a', 'a')).toBe(tree);
+    expect(moveNodeToPosition(tree, 'nope', null, 0)).toBe(tree);
+  });
+
+  it('is a no-op when already at the same parent and index', () => {
+    const tree = [node('a'), node('b')];
+    expect(moveNodeToPosition(tree, 'a', null, 0)).toBe(tree);
+  });
+
+  it('clamps an out-of-range top-level index to the end instead of throwing', () => {
+    const tree = [node('a'), node('b')];
+    expect(ids(moveNodeToPosition(tree, 'a', null, 999))).toEqual(['b', 'a']);
+  });
+
+  it('clamps an out-of-range index within a parent’s children too', () => {
+    const tree = [node('a', [node('a1')]), node('b')];
+    const next = moveNodeToPosition(tree, 'b', 'a', 999);
+    expect(next[0]!.children.map((n) => n.id)).toEqual(['a1', 'b']);
   });
 });
 
@@ -556,6 +557,46 @@ describe('duplicateSubtree', () => {
     expect(dup.id).toBe('id-a');
     expect(dup.children[0]!.id).toBe('id-b');
     expect(dup.children[1]!.id).toBe('id-c');
+  });
+});
+
+describe('flattenVisibleTree', () => {
+  it("matches getVisibleOrder's id order across the same fixture", () => {
+    const tree = [node('a', [node('a1'), node('a2')]), node('b')];
+    const expanded = new Set(['a']);
+    expect(flattenVisibleTree(tree, expanded, false).map((r) => r.id)).toEqual(
+      getVisibleOrder(tree, expanded, false),
+    );
+  });
+
+  it('assigns depth and parentId for nested visible rows', () => {
+    const tree = [node('a', [node('a1', [node('a1a')])]), node('b')];
+    const expanded = new Set(['a', 'a1']);
+    expect(flattenVisibleTree(tree, expanded, false)).toEqual([
+      { id: 'a', depth: 0, parentId: null },
+      { id: 'a1', depth: 1, parentId: 'a' },
+      { id: 'a1a', depth: 2, parentId: 'a1' },
+      { id: 'b', depth: 0, parentId: null },
+    ]);
+  });
+
+  it('does not descend into a collapsed node', () => {
+    const tree = [node('a', [node('a1', [node('a1a')])])];
+    expect(flattenVisibleTree(tree, new Set(['a']), false)).toEqual([
+      { id: 'a', depth: 0, parentId: null },
+      { id: 'a1', depth: 1, parentId: 'a' },
+    ]);
+  });
+
+  it('skips completed nodes (and their subtrees) when hideCompleted is set', () => {
+    const tree = [node('a', [node('a1')], { completed: true }), node('b')];
+    expect(flattenVisibleTree(tree, new Set(['a']), true)).toEqual([{ id: 'b', depth: 0, parentId: null }]);
+  });
+
+  it("excludeSubtreeOf hides a node's own descendants but keeps the node itself", () => {
+    const tree = [node('a', [node('a1'), node('a2')]), node('b')];
+    const rows = flattenVisibleTree(tree, new Set(['a']), false, 'a');
+    expect(rows.map((r) => r.id)).toEqual(['a', 'b']);
   });
 });
 
@@ -775,7 +816,8 @@ describe('getActionNodeIds', () => {
     [{ type: 'NEW_SIBLING_BEFORE', beforeId: 'x', newId: 'n' }, ['x', 'n']],
     [{ type: 'APPEND_CHILD', parentId: 'x', newId: 'n' }, ['x', 'n']],
     [{ type: 'APPEND_CHILD', parentId: 'x' }, ['x']],
-    [{ type: 'MOVE_NODE', activeId: 'a', overId: 'o', nest: false }, ['a', 'o']],
+    [{ type: 'MOVE_NODE', activeId: 'a', newParentId: 'p', index: 0 }, ['a', 'p']],
+    [{ type: 'MOVE_NODE', activeId: 'a', newParentId: null, index: 0 }, ['a']],
     [{ type: 'MERGE_WITH_PREVIOUS', id: 'x', targetId: 'y' }, ['x', 'y']],
     [{ type: 'DUPLICATE_NODE', id: 'x', newId: 'n' }, ['x', 'n']],
     [{ type: 'DUPLICATE_NODE', id: 'x' }, ['x']],
@@ -865,17 +907,17 @@ describe('clampActionToSharedRoot', () => {
   });
 
   it('drops MOVE_NODE when the root is the node being moved', () => {
-    const action: AppAction = { type: 'MOVE_NODE', activeId: 'root', overId: 'child', nest: false };
+    const action: AppAction = { type: 'MOVE_NODE', activeId: 'root', newParentId: 'child', index: 0 };
     expect(clampActionToSharedRoot(tree(), action, 'root')).toBeNull();
   });
 
-  it('drops a non-nesting MOVE_NODE that would reorder something to become a sibling of the root', () => {
-    const action: AppAction = { type: 'MOVE_NODE', activeId: 'grandchild', overId: 'root', nest: false };
+  it("drops a MOVE_NODE that would land at the recipient's own top level (sibling of root)", () => {
+    const action: AppAction = { type: 'MOVE_NODE', activeId: 'grandchild', newParentId: null, index: 0 };
     expect(clampActionToSharedRoot(tree(), action, 'root')).toBeNull();
   });
 
   it('allows nesting a node as a child of the root via MOVE_NODE', () => {
-    const action: AppAction = { type: 'MOVE_NODE', activeId: 'grandchild', overId: 'root', nest: true };
+    const action: AppAction = { type: 'MOVE_NODE', activeId: 'grandchild', newParentId: 'root', index: 0 };
     expect(clampActionToSharedRoot(tree(), action, 'root')).toEqual(action);
   });
 
