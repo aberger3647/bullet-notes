@@ -139,24 +139,17 @@ html[data-zoom-direction='backward']::view-transition-new(bullet-list) {
   position: relative;
 }
 
-/* Vertical spine connecting sibling bullets at the same hierarchy level */
-.outline-item:not(:last-child)::before {
-  content: '';
-  position: absolute;
-  left: 4.2rem;
-  top: 1.1rem;
-  bottom: 0;
-  width: 1px;
-  background: var(--border);
-  pointer-events: none;
-}
-
+/* Indent guide: one colored vertical line per nesting level, cycling through
+   --indent-depth-N (set inline per level in BulletList.tsx). Living on the
+   indent wrapper's own left edge means row content can never paint over it,
+   unlike the old spine (a ::before behind .bullet-row-content) it replaced. */
 .outline-children {
-  padding-left: 1rem;
+  padding-left: 1.5rem;
   margin-top: 0.05rem;
   display: flex;
   flex-direction: column;
   gap: 0.06rem;
+  border-left: 2px solid var(--indent-color, var(--border));
 }
 
 .outline-children[hidden] {
@@ -232,10 +225,6 @@ html[data-zoom-direction='backward']::view-transition-new(bullet-list) {
   .bullet-row:focus-within .share-slot {
     display: none;
   }
-
-  .bullet-row--shared:not(:focus-within) .share-btn {
-    opacity: 1;
-  }
 }
 
 .bullet-row.completed .bullet-input {
@@ -303,6 +292,7 @@ html[data-zoom-direction='backward']::view-transition-new(bullet-list) {
 
 .share-btn {
   opacity: 0;
+  color: var(--muted-foreground);
   transition: opacity 0.12s ease;
 }
 

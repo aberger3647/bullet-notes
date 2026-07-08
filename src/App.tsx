@@ -38,10 +38,14 @@ function Shell() {
     mode,
     syncStatus,
     otherEditors,
+    lastEditedBy,
     readOnly,
     editingBulletId,
     selectedIds,
     clearSelection,
+    bulkIndent,
+    bulkOutdent,
+    bulkToggleComplete,
   } = useAppState();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchFocusToken, setSearchFocusToken] = useState(0);
@@ -57,11 +61,25 @@ function Shell() {
       }
       if (e.key === 'Escape' && selectedIds.size > 0) {
         clearSelection();
+        return;
+      }
+      if (selectedIds.size === 0 || readOnly) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return;
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        bulkToggleComplete();
+        return;
+      }
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        if (e.shiftKey) bulkOutdent();
+        else bulkIndent();
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selectedIds, clearSelection]);
+  }, [selectedIds, clearSelection, readOnly, bulkIndent, bulkOutdent, bulkToggleComplete]);
   const shellStyle = useMemo(
     () => ({ '--keyboard-inset': `${keyboardBottom}px` }) as CSSProperties,
     [keyboardBottom],
@@ -105,23 +123,30 @@ function Shell() {
       <header className="app-header">
         {mode === 'shared' ? (
           <div
-            className="mb-2.5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2"
+            className="mb-2.5 flex flex-col gap-1 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2"
             role="status"
             aria-label="Shared note"
           >
-            <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
-              <Users className="size-3.5" aria-hidden />
-              {readOnly ? 'Shared note (view only)' : 'Shared note'}
-            </span>
-            <span
-              className={cn(
-                'text-xs',
-                syncStatus === 'connected' && 'text-foreground',
-                (syncStatus === 'error' || syncStatus === 'reconnecting') && 'text-muted-foreground',
-              )}
-            >
-              {syncStatusLabel(syncStatus, otherEditors)}
-            </span>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
+                <Users className="size-3.5" aria-hidden />
+                {readOnly ? 'Shared note (view only)' : 'Shared note'}
+              </span>
+              <span
+                className={cn(
+                  'text-xs',
+                  syncStatus === 'connected' && 'text-foreground',
+                  (syncStatus === 'error' || syncStatus === 'reconnecting') && 'text-muted-foreground',
+                )}
+              >
+                {syncStatusLabel(syncStatus, otherEditors)}
+              </span>
+            </div>
+            {lastEditedBy ? (
+              <span className="text-xs text-muted-foreground">
+                Last edited by {lastEditedBy.name} · {new Date(lastEditedBy.at).toLocaleString()}
+              </span>
+            ) : null}
           </div>
         ) : null}
 

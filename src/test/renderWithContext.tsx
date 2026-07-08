@@ -36,6 +36,8 @@ export function makeContextValue(
     syncStatus: 'connected',
     otherEditors: 0,
     otherPresences: [],
+    lastEditedBy: null,
+    lastEditedByRoot: new Map(),
     readOnly: false,
     shareNode: vi.fn().mockResolvedValue(undefined),
     shareNodeFromGesture: vi.fn().mockResolvedValue(undefined),

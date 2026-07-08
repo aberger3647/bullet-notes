@@ -138,11 +138,13 @@ export function BulletRow({
     scheduleClearEditingBullet,
     readOnly,
     otherPresences,
+    lastEditedByRoot,
     selectedIds,
     selectRange,
     clearSelection,
   } = useAppState();
   const editors = otherPresences.filter((p) => p.editingId === node.id);
+  const lastEditedByOther = node.shareToken ? lastEditedByRoot.get(node.id) : undefined;
   const isSelected = selectedIds.has(node.id);
   const { onMouseDown: onDragSelectMouseDown } = useBulletDragSelect(node.id, selectRange, clearSelection);
   const editRef = useRef<HTMLDivElement>(null);
@@ -501,6 +503,18 @@ export function BulletRow({
               <TooltipContent>{`${p.displayName} is editing this bullet`}</TooltipContent>
             </Tooltip>
           ))}
+        </span>
+      ) : null}
+      {lastEditedByOther ? (
+        <span className="presence-badges" aria-hidden={false}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="presence-badge" style={{ backgroundColor: colorForClientId(lastEditedByOther.name) }}>
+                {lastEditedByOther.name}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>{`Last edited by ${lastEditedByOther.name} · ${new Date(lastEditedByOther.at).toLocaleString()}`}</TooltipContent>
+          </Tooltip>
         </span>
       ) : null}
       </div>

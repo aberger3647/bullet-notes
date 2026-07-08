@@ -143,6 +143,7 @@ export type Database = {
       bullet_notes_documents: {
         Row: {
           id: string
+          last_edited_by: string | null
           permission: string
           revoked: boolean
           share_token: string
@@ -152,6 +153,7 @@ export type Database = {
         }
         Insert: {
           id?: string
+          last_edited_by?: string | null
           permission?: string
           revoked?: boolean
           share_token?: string
@@ -161,6 +163,7 @@ export type Database = {
         }
         Update: {
           id?: string
+          last_edited_by?: string | null
           permission?: string
           revoked?: boolean
           share_token?: string
@@ -233,150 +236,6 @@ export type Database = {
           updated_at?: string
           user_id?: string
           zoom_path?: Json
-        }
-        Relationships: []
-      }
-      client_invitations: {
-        Row: {
-          coach_id: string
-          created_at: string
-          display_name: string
-          email: string
-        }
-        Insert: {
-          coach_id: string
-          created_at?: string
-          display_name: string
-          email: string
-        }
-        Update: {
-          coach_id?: string
-          created_at?: string
-          display_name?: string
-          email?: string
-        }
-        Relationships: []
-      }
-      client_rep_max_history: {
-        Row: {
-          bench_1rm_kg: number | null
-          changed_at: string
-          client_id: string
-          coach_id: string
-          deadlift_1rm_kg: number | null
-          id: string
-          squat_1rm_kg: number | null
-        }
-        Insert: {
-          bench_1rm_kg?: number | null
-          changed_at?: string
-          client_id: string
-          coach_id: string
-          deadlift_1rm_kg?: number | null
-          id?: string
-          squat_1rm_kg?: number | null
-        }
-        Update: {
-          bench_1rm_kg?: number | null
-          changed_at?: string
-          client_id?: string
-          coach_id?: string
-          deadlift_1rm_kg?: number | null
-          id?: string
-          squat_1rm_kg?: number | null
-        }
-        Relationships: []
-      }
-      clients: {
-        Row: {
-          auth_user_id: string
-          bench_1rm_kg: number | null
-          coach_id: string
-          created_at: string
-          deadlift_1rm_kg: number | null
-          display_name: string
-          email: string | null
-          squat_1rm_kg: number | null
-        }
-        Insert: {
-          auth_user_id: string
-          bench_1rm_kg?: number | null
-          coach_id: string
-          created_at?: string
-          deadlift_1rm_kg?: number | null
-          display_name: string
-          email?: string | null
-          squat_1rm_kg?: number | null
-        }
-        Update: {
-          auth_user_id?: string
-          bench_1rm_kg?: number | null
-          coach_id?: string
-          created_at?: string
-          deadlift_1rm_kg?: number | null
-          display_name?: string
-          email?: string | null
-          squat_1rm_kg?: number | null
-        }
-        Relationships: []
-      }
-      coach_exercises: {
-        Row: {
-          body_parts: string[]
-          coach_id: string
-          default_duration_seconds: number | null
-          default_duration_unit: string | null
-          measure: string
-          movement_pattern: string | null
-          name: string
-          name_lower: string
-          notes: string | null
-          section: string | null
-          updated_at: string
-          video_url: string | null
-        }
-        Insert: {
-          body_parts?: string[]
-          coach_id: string
-          default_duration_seconds?: number | null
-          default_duration_unit?: string | null
-          measure?: string
-          movement_pattern?: string | null
-          name: string
-          name_lower?: string
-          notes?: string | null
-          section?: string | null
-          updated_at?: string
-          video_url?: string | null
-        }
-        Update: {
-          body_parts?: string[]
-          coach_id?: string
-          default_duration_seconds?: number | null
-          default_duration_unit?: string | null
-          measure?: string
-          movement_pattern?: string | null
-          name?: string
-          name_lower?: string
-          notes?: string | null
-          section?: string | null
-          updated_at?: string
-          video_url?: string | null
-        }
-        Relationships: []
-      }
-      coaches: {
-        Row: {
-          created_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          user_id?: string
         }
         Relationships: []
       }
@@ -589,24 +448,6 @@ export type Database = {
           },
         ]
       }
-      user_preferences: {
-        Row: {
-          display_unit: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          display_unit?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          display_unit?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       users: {
         Row: {
           created_at: string | null
@@ -622,69 +463,6 @@ export type Database = {
           created_at?: string | null
           email?: string
           id?: string
-        }
-        Relationships: []
-      }
-      workouts: {
-        Row: {
-          actual_results: Json | null
-          client_exercise_notes: Json | null
-          client_id: string
-          client_note: string | null
-          client_videos: Json | null
-          completed_at: string | null
-          completed_exercises: Json | null
-          created_at: string
-          cycle_id: string | null
-          cycle_lift: string | null
-          cycle_week: number | null
-          duration_seconds: number | null
-          exercises: Json
-          id: string
-          notes: string | null
-          scheduled_date: string
-          started_at: string | null
-          title: string
-        }
-        Insert: {
-          actual_results?: Json | null
-          client_exercise_notes?: Json | null
-          client_id: string
-          client_note?: string | null
-          client_videos?: Json | null
-          completed_at?: string | null
-          completed_exercises?: Json | null
-          created_at?: string
-          cycle_id?: string | null
-          cycle_lift?: string | null
-          cycle_week?: number | null
-          duration_seconds?: number | null
-          exercises?: Json
-          id?: string
-          notes?: string | null
-          scheduled_date: string
-          started_at?: string | null
-          title: string
-        }
-        Update: {
-          actual_results?: Json | null
-          client_exercise_notes?: Json | null
-          client_id?: string
-          client_note?: string | null
-          client_videos?: Json | null
-          completed_at?: string | null
-          completed_exercises?: Json | null
-          created_at?: string
-          cycle_id?: string | null
-          cycle_lift?: string | null
-          cycle_week?: number | null
-          duration_seconds?: number | null
-          exercises?: Json
-          id?: string
-          notes?: string | null
-          scheduled_date?: string
-          started_at?: string | null
-          title?: string
         }
         Relationships: []
       }
@@ -707,6 +485,10 @@ export type Database = {
       bullet_notes_delete_my_data: { Args: never; Returns: undefined }
       bullet_notes_get_doc: { Args: { p_id: string }; Returns: Json }
       bullet_notes_get_document: {
+        Args: { p_share_token: string }
+        Returns: Json
+      }
+      bullet_notes_get_document_meta: {
         Args: { p_share_token: string }
         Returns: Json
       }
@@ -757,221 +539,6 @@ export type Database = {
         Returns: undefined
       }
       bullet_notes_snapshot_user_document: { Args: never; Returns: undefined }
-      caller_can_access_workout_video: {
-        Args: { p_name: string }
-        Returns: boolean
-      }
-      client_move_workout: {
-        Args: { p_new_date: string; p_workout_id: string }
-        Returns: {
-          actual_results: Json | null
-          client_exercise_notes: Json | null
-          client_id: string
-          client_note: string | null
-          client_videos: Json | null
-          completed_at: string | null
-          completed_exercises: Json | null
-          created_at: string
-          cycle_id: string | null
-          cycle_lift: string | null
-          cycle_week: number | null
-          duration_seconds: number | null
-          exercises: Json
-          id: string
-          notes: string | null
-          scheduled_date: string
-          started_at: string | null
-          title: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "workouts"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      coach_add_client: {
-        Args: { p_display_name: string; p_email: string }
-        Returns: {
-          auth_user_id: string
-          bench_1rm_kg: number | null
-          coach_id: string
-          created_at: string
-          deadlift_1rm_kg: number | null
-          display_name: string
-          email: string | null
-          squat_1rm_kg: number | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "clients"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      coach_generate_531_cycle: {
-        Args: { p_client_id: string; p_start_monday: string; p_workouts: Json }
-        Returns: {
-          actual_results: Json | null
-          client_exercise_notes: Json | null
-          client_id: string
-          client_note: string | null
-          client_videos: Json | null
-          completed_at: string | null
-          completed_exercises: Json | null
-          created_at: string
-          cycle_id: string | null
-          cycle_lift: string | null
-          cycle_week: number | null
-          duration_seconds: number | null
-          exercises: Json
-          id: string
-          notes: string | null
-          scheduled_date: string
-          started_at: string | null
-          title: string
-        }[]
-        SetofOptions: {
-          from: "*"
-          to: "workouts"
-          isOneToOne: false
-          isSetofReturn: true
-        }
-      }
-      coach_get_client_rep_max_history: {
-        Args: { p_client_id: string }
-        Returns: {
-          bench_1rm_kg: number | null
-          changed_at: string
-          client_id: string
-          coach_id: string
-          deadlift_1rm_kg: number | null
-          id: string
-          squat_1rm_kg: number | null
-        }[]
-        SetofOptions: {
-          from: "*"
-          to: "client_rep_max_history"
-          isOneToOne: false
-          isSetofReturn: true
-        }
-      }
-      coach_invite_client: {
-        Args: { p_display_name: string; p_email: string }
-        Returns: {
-          coach_id: string
-          created_at: string
-          display_name: string
-          email: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "client_invitations"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      coach_set_client_display_name: {
-        Args: { p_client_id: string; p_display_name: string }
-        Returns: {
-          auth_user_id: string
-          bench_1rm_kg: number | null
-          coach_id: string
-          created_at: string
-          deadlift_1rm_kg: number | null
-          display_name: string
-          email: string | null
-          squat_1rm_kg: number | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "clients"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      coach_set_client_rep_maxes: {
-        Args: {
-          p_bench_kg: number
-          p_client_id: string
-          p_deadlift_kg: number
-          p_squat_kg: number
-        }
-        Returns: {
-          auth_user_id: string
-          bench_1rm_kg: number | null
-          coach_id: string
-          created_at: string
-          deadlift_1rm_kg: number | null
-          display_name: string
-          email: string | null
-          squat_1rm_kg: number | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "clients"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      coach_shift_workouts: {
-        Args: { p_days_delta: number; p_workout_ids: string[] }
-        Returns: {
-          actual_results: Json | null
-          client_exercise_notes: Json | null
-          client_id: string
-          client_note: string | null
-          client_videos: Json | null
-          completed_at: string | null
-          completed_exercises: Json | null
-          created_at: string
-          cycle_id: string | null
-          cycle_lift: string | null
-          cycle_week: number | null
-          duration_seconds: number | null
-          exercises: Json
-          id: string
-          notes: string | null
-          scheduled_date: string
-          started_at: string | null
-          title: string
-        }[]
-        SetofOptions: {
-          from: "*"
-          to: "workouts"
-          isOneToOne: false
-          isSetofReturn: true
-        }
-      }
-      delete_workout_video: {
-        Args: { p_exercise_index: number; p_path: string; p_workout_id: string }
-        Returns: {
-          actual_results: Json | null
-          client_exercise_notes: Json | null
-          client_id: string
-          client_note: string | null
-          client_videos: Json | null
-          completed_at: string | null
-          completed_exercises: Json | null
-          created_at: string
-          cycle_id: string | null
-          cycle_lift: string | null
-          cycle_week: number | null
-          duration_seconds: number | null
-          exercises: Json
-          id: string
-          notes: string | null
-          scheduled_date: string
-          started_at: string | null
-          title: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "workouts"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
       get_places: {
         Args: {
           p_lat: number
@@ -988,162 +555,6 @@ export type Database = {
           place_name: string
         }[]
       }
-      set_my_display_name: { Args: { p_display_name: string }; Returns: string }
-      set_workout_client_exercise_notes: {
-        Args: { p_notes: Json; p_workout_id: string }
-        Returns: {
-          actual_results: Json | null
-          client_exercise_notes: Json | null
-          client_id: string
-          client_note: string | null
-          client_videos: Json | null
-          completed_at: string | null
-          completed_exercises: Json | null
-          created_at: string
-          cycle_id: string | null
-          cycle_lift: string | null
-          cycle_week: number | null
-          duration_seconds: number | null
-          exercises: Json
-          id: string
-          notes: string | null
-          scheduled_date: string
-          started_at: string | null
-          title: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "workouts"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      set_workout_completion: {
-        Args: {
-          p_client_note?: string
-          p_done: boolean
-          p_duration_seconds?: number
-          p_started_at?: string
-          p_workout_id: string
-        }
-        Returns: {
-          actual_results: Json | null
-          client_exercise_notes: Json | null
-          client_id: string
-          client_note: string | null
-          client_videos: Json | null
-          completed_at: string | null
-          completed_exercises: Json | null
-          created_at: string
-          cycle_id: string | null
-          cycle_lift: string | null
-          cycle_week: number | null
-          duration_seconds: number | null
-          exercises: Json
-          id: string
-          notes: string | null
-          scheduled_date: string
-          started_at: string | null
-          title: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "workouts"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      set_workout_exercise_completion: {
-        Args: { p_completed: Json; p_workout_id: string }
-        Returns: {
-          actual_results: Json | null
-          client_exercise_notes: Json | null
-          client_id: string
-          client_note: string | null
-          client_videos: Json | null
-          completed_at: string | null
-          completed_exercises: Json | null
-          created_at: string
-          cycle_id: string | null
-          cycle_lift: string | null
-          cycle_week: number | null
-          duration_seconds: number | null
-          exercises: Json
-          id: string
-          notes: string | null
-          scheduled_date: string
-          started_at: string | null
-          title: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "workouts"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      set_workout_results: {
-        Args: { p_results: Json; p_workout_id: string }
-        Returns: {
-          actual_results: Json | null
-          client_exercise_notes: Json | null
-          client_id: string
-          client_note: string | null
-          client_videos: Json | null
-          completed_at: string | null
-          completed_exercises: Json | null
-          created_at: string
-          cycle_id: string | null
-          cycle_lift: string | null
-          cycle_week: number | null
-          duration_seconds: number | null
-          exercises: Json
-          id: string
-          notes: string | null
-          scheduled_date: string
-          started_at: string | null
-          title: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "workouts"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      set_workout_videos: {
-        Args: { p_videos: Json; p_workout_id: string }
-        Returns: {
-          actual_results: Json | null
-          client_exercise_notes: Json | null
-          client_id: string
-          client_note: string | null
-          client_videos: Json | null
-          completed_at: string | null
-          completed_exercises: Json | null
-          created_at: string
-          cycle_id: string | null
-          cycle_lift: string | null
-          cycle_week: number | null
-          duration_seconds: number | null
-          exercises: Json
-          id: string
-          notes: string | null
-          scheduled_date: string
-          started_at: string | null
-          title: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "workouts"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      workout_build_main_531_sets_json: {
-        Args: { tm_kg: number; wave_week: number }
-        Returns: Json
-      }
       workout_instantiate_template: {
         Args: {
           p_anchor_dow: number[]
@@ -1155,10 +566,6 @@ export type Database = {
           p_template_id: string
         }
         Returns: string
-      }
-      workout_round_down_step: {
-        Args: { step: number; weight: number }
-        Returns: number
       }
     }
     Enums: {

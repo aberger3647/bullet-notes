@@ -3,8 +3,10 @@ import type { BulletNode } from '../../src/state/types';
 import type { UserDocumentRow } from '../../src/sync/userDocumentApi';
 import type { DocumentRow } from '../../src/sync/documentApi';
 
+export const FAKE_USER_ID = '00000000-0000-0000-0000-000000000001';
+
 const FAKE_USER = {
-  id: '00000000-0000-0000-0000-000000000001',
+  id: FAKE_USER_ID,
   aud: 'authenticated',
   role: 'authenticated',
   email: 'e2e@example.com',
@@ -83,7 +85,7 @@ export async function mockSharedDocument(
   page: Page,
   shareToken: string,
   initialTree: BulletNode[],
-  opts: { permission?: 'edit' | 'view' } = {},
+  opts: { permission?: 'edit' | 'view'; lastEditedBy?: string | null; lastEditedByName?: string | null } = {},
 ) {
   let tree = initialTree;
 
@@ -96,6 +98,8 @@ export async function mockSharedDocument(
       updated_at: new Date().toISOString(),
       permission: opts.permission ?? 'edit',
       revoked: false,
+      last_edited_by: opts.lastEditedBy ?? null,
+      last_edited_by_name: opts.lastEditedByName ?? null,
     };
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   });

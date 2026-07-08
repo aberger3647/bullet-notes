@@ -42,7 +42,7 @@ afterEach(() => {
 });
 
 function renderSync(tree: BulletNode[]) {
-  return renderHook(() => useSharedSubtreeSync({ tree, enabled: true, onRemoteAction: () => {} }));
+  return renderHook(() => useSharedSubtreeSync({ tree, enabled: true, userId: 'owner-1', displayName: 'Owner', onRemoteAction: () => {} }));
 }
 
 describe('useSharedSubtreeSync reconnect', () => {
@@ -69,7 +69,7 @@ describe('useSharedSubtreeSync reconnect', () => {
   it('resumes broadcasting on the new channel after a successful reconnect', () => {
     const tree = [node('root', [], { shareToken: 'tok' })];
     const { result, unmount } = renderHook(() =>
-      useSharedSubtreeSync({ tree, enabled: true, onRemoteAction: () => {} }),
+      useSharedSubtreeSync({ tree, enabled: true, userId: 'owner-1', displayName: 'Owner', onRemoteAction: () => {} }),
     );
     const first = createdChannels[0]!;
     vi.useFakeTimers();
@@ -87,10 +87,10 @@ describe('useSharedSubtreeSync reconnect', () => {
     unmount();
   });
 
-  it('resumes scheduled saves once reconnected and a real tree change occurs', () => {
+  it('resumes scheduled saves once reconnected and a genuine local edit occurs', () => {
     const tree = [node('root', [], { shareToken: 'tok', text: 'before' })];
-    const { rerender, unmount } = renderHook(
-      ({ tree }) => useSharedSubtreeSync({ tree, enabled: true, onRemoteAction: () => {} }),
+    const { result, rerender, unmount } = renderHook(
+      ({ tree }) => useSharedSubtreeSync({ tree, enabled: true, userId: 'owner-1', displayName: 'Owner', onRemoteAction: () => {} }),
       { initialProps: { tree } },
     );
     const first = createdChannels[0]!;
@@ -100,15 +100,13 @@ describe('useSharedSubtreeSync reconnect', () => {
     const second = createdChannels[1]!;
     act(() => second._emitStatus!('SUBSCRIBED'));
 
-    // A tree edit rebuilds `sharedRoots`'s array reference, which — independent of this
-    // fix — makes the channel-management effect tear down and recreate the bundle each
-    // time (a pre-existing characteristic of this hook, not part of Bug D). Confirm the
-    // fresh bundle it creates comes back up and can still schedule a save once subscribed.
+    // Only a genuinely local edit — via broadcastSubtreeAction, never a bare tree-prop
+    // change — schedules a save (see useDocumentSync.test.ts for why: a save effect that
+    // merely watched `tree` couldn't tell a local edit apart from a remote one just
+    // applied locally). Confirm that still works correctly after a reconnect cycle.
     const editedTree = [node('root', [], { shareToken: 'tok', text: 'after' })];
     rerender({ tree: editedTree });
-    expect(createdChannels.length).toBeGreaterThanOrEqual(2);
-    const third = createdChannels[createdChannels.length - 1]!;
-    act(() => third._emitStatus!('SUBSCRIBED'));
+    act(() => result.current.broadcastSubtreeAction({ type: 'TOGGLE_COMPLETE', id: 'root' } as AppAction));
     act(() => vi.advanceTimersByTime(SAVE_DEBOUNCE_MS));
     expect(vi.mocked(persistDocument)).toHaveBeenCalledWith('tok', expect.anything());
 

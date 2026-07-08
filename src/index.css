@@ -95,6 +95,14 @@ body {
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Rainbow indent-guide colors, cycling by nesting depth (0 = least indented). */
+  --indent-depth-0: oklch(0.62 0.2 25);
+  --indent-depth-1: oklch(0.72 0.17 55);
+  --indent-depth-2: oklch(0.8 0.16 95);
+  --indent-depth-3: oklch(0.7 0.16 145);
+  --indent-depth-4: oklch(0.62 0.17 250);
+  --indent-depth-5: oklch(0.62 0.18 320);
 }
 
 html[data-theme='dark'] {
@@ -129,6 +137,13 @@ html[data-theme='dark'] {
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  --indent-depth-0: oklch(0.68 0.19 25);
+  --indent-depth-1: oklch(0.76 0.16 55);
+  --indent-depth-2: oklch(0.83 0.15 95);
+  --indent-depth-3: oklch(0.74 0.15 145);
+  --indent-depth-4: oklch(0.7 0.16 250);
+  --indent-depth-5: oklch(0.7 0.17 320);
 }
 
 @layer base {

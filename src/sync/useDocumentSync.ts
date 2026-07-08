@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { toast } from 'sonner';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import type { AppAction, BulletNode } from '../state/types';
 import { fetchDocument, isViewOnlyRejection, parseBroadcastMessage, persistDocument } from './documentApi';
@@ -17,11 +18,14 @@ export { createSharedDocument } from './documentApi';
 
 export type PresenceInfo = { clientId: string; displayName: string; editingId: string | null };
 
+export type LastEditedBy = { name: string; at: string };
+
 type UseDocumentSyncOptions = {
   shareToken: string;
   tree: BulletNode[];
   enabled: boolean;
   displayName: string;
+  userId: string | null;
   editingId: string | null;
   onRemoteAction: (action: AppAction) => void;
   onHydrate: (tree: BulletNode[]) => void;
@@ -32,6 +36,7 @@ export function useDocumentSync({
   tree,
   enabled,
   displayName,
+  userId,
   editingId,
   onRemoteAction,
   onHydrate,
@@ -42,11 +47,15 @@ export function useDocumentSync({
   const [otherEditors, setOtherEditors] = useState(0);
   const [otherPresences, setOtherPresences] = useState<PresenceInfo[]>([]);
   const [permission, setPermission] = useState<'edit' | 'view'>('edit');
+  const [lastEditedBy, setLastEditedBy] = useState<LastEditedBy | null>(null);
   const displayNameRef = useRef(displayName);
   const editingIdRef = useRef(editingId);
+  const userIdRef = useRef(userId);
+  const otherPresencesRef = useRef<PresenceInfo[]>([]);
   useEffect(() => {
     displayNameRef.current = displayName;
     editingIdRef.current = editingId;
+    userIdRef.current = userId;
   });
 
   // Reset to 'loading' synchronously during render (not in an effect) when the fetch
@@ -71,7 +80,6 @@ export function useDocumentSync({
   const onRemoteActionRef = useRef(onRemoteAction);
   const onHydrateRef = useRef(onHydrate);
   const permissionRef = useRef(permission);
-  const lastHydratedTreeRef = useRef<BulletNode[] | null>(null);
   useEffect(() => {
     treeRef.current = tree;
     shareTokenRef.current = shareToken;
@@ -105,31 +113,6 @@ export function useDocumentSync({
     pendingTextRef.current.clear();
   }, [broadcastNow]);
 
-  const broadcastAction = useCallback(
-    (action: AppAction) => {
-      if (!enabled || !isSyncableAction(action)) return;
-
-      if (action.type === 'SET_TEXT') {
-        pendingTextRef.current.set(action.id, action.text);
-        const existing = textTimersRef.current.get(action.id);
-        if (existing) clearTimeout(existing);
-        const timer = setTimeout(() => {
-          textTimersRef.current.delete(action.id);
-          const text = pendingTextRef.current.get(action.id);
-          if (text === undefined) return;
-          pendingTextRef.current.delete(action.id);
-          void broadcastNow({ type: 'SET_TEXT', id: action.id, text });
-        }, TEXT_BROADCAST_MS);
-        textTimersRef.current.set(action.id, timer);
-        return;
-      }
-
-      flushPendingText();
-      void broadcastNow(action);
-    },
-    [broadcastNow, enabled, flushPendingText],
-  );
-
   const flushSave = useCallback(() => {
     if (!enabled || !isSupabaseConfigured()) return;
     if (permissionRef.current === 'view') return; // defense in depth — server remains authoritative
@@ -161,6 +144,39 @@ export function useDocumentSync({
     }, SAVE_DEBOUNCE_MS);
   }, [enabled, flushSave]);
 
+  // Only a genuinely local edit (never a remote one echoed back through the
+  // reducer) schedules a save — otherwise whichever peer's debounce timer
+  // happens to fire last would stamp `last_edited_by` with itself, even though
+  // it only received the edit rather than making it. The beforeunload flush
+  // below remains unconditional, as a resilience fallback for when the true
+  // author's own client never gets the chance to save.
+  const broadcastAction = useCallback(
+    (action: AppAction) => {
+      if (!enabled || !isSyncableAction(action)) return;
+      setLastEditedBy(null); // this client is now the most recent editor
+      scheduleSave();
+
+      if (action.type === 'SET_TEXT') {
+        pendingTextRef.current.set(action.id, action.text);
+        const existing = textTimersRef.current.get(action.id);
+        if (existing) clearTimeout(existing);
+        const timer = setTimeout(() => {
+          textTimersRef.current.delete(action.id);
+          const text = pendingTextRef.current.get(action.id);
+          if (text === undefined) return;
+          pendingTextRef.current.delete(action.id);
+          void broadcastNow({ type: 'SET_TEXT', id: action.id, text });
+        }, TEXT_BROADCAST_MS);
+        textTimersRef.current.set(action.id, timer);
+        return;
+      }
+
+      flushPendingText();
+      void broadcastNow(action);
+    },
+    [broadcastNow, enabled, flushPendingText, scheduleSave],
+  );
+
   useEffect(() => {
     if (!enabled || !shareToken || !isSupabaseConfigured()) return;
 
@@ -175,8 +191,12 @@ export function useDocumentSync({
           return;
         }
         onHydrateRef.current(doc.tree);
-        lastHydratedTreeRef.current = doc.tree;
         setPermission(doc.permission ?? 'edit');
+        setLastEditedBy(
+          doc.last_edited_by && doc.last_edited_by !== userIdRef.current
+            ? { name: doc.last_edited_by_name || 'Someone', at: doc.updated_at }
+            : null,
+        );
         setHydrated(true);
         void recordShareOpen(shareToken).catch(() => {});
       } catch {
@@ -225,12 +245,16 @@ export function useDocumentSync({
             const msg = parseBroadcastMessage(raw);
             if (!msg || msg.source === clientIdRef.current) return;
             onRemoteActionRef.current(msg.action);
+            const editorName = otherPresencesRef.current.find((p) => p.clientId === msg.source)?.displayName;
+            setLastEditedBy({ name: editorName || 'Someone', at: new Date().toISOString() });
+            toast(`${editorName || 'Someone'} is editing this note`, { id: `edit-toast-${shareToken}` });
           })
           .on('presence', { event: 'sync' }, () => {
             if (!channel) return;
             const presenceState = channel.presenceState<PresenceInfo>();
             const all = Object.values(presenceState).flat();
             const others = all.filter((p) => p.clientId !== clientIdRef.current);
+            otherPresencesRef.current = others;
             setOtherEditors(others.length);
             setOtherPresences(others);
           })
@@ -281,12 +305,6 @@ export function useDocumentSync({
     };
   }, [enabled, hydrated, shareToken]);
 
-  useEffect(() => {
-    if (!enabled || status !== 'connected') return;
-    if (tree === lastHydratedTreeRef.current) return; // nothing changed since hydrate — don't resave untouched, just-fetched data
-    scheduleSave();
-  }, [enabled, scheduleSave, status, tree]);
-
   // Re-broadcast presence (display name + which bullet is being edited) whenever
   // either changes, so peers see up-to-date attribution without a full reconnect.
   useEffect(() => {
@@ -300,5 +318,5 @@ export function useDocumentSync({
     } satisfies PresenceInfo);
   }, [enabled, status, displayName, editingId]);
 
-  return { status, otherEditors, otherPresences, permission, broadcastAction, flushSave };
+  return { status, otherEditors, otherPresences, permission, lastEditedBy, broadcastAction, flushSave };
 }

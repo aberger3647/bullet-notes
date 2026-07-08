@@ -9,11 +9,13 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, type CSSProperties } from 'react';
 import { useAppState } from '../hooks/useAppState';
 import type { BulletNode } from '../state/types';
 import { findNodeById, getVisibleOrder } from '../state/treeOps';
 import { BulletRow } from './BulletRow';
+
+const INDENT_COLOR_COUNT = 6;
 
 function filterVisible(nodes: BulletNode[], hideCompleted: boolean): BulletNode[] {
   return hideCompleted ? nodes.filter((n) => !n.completed) : nodes;
@@ -38,9 +40,10 @@ type OutlineRowsProps = {
   onToggleExpand: (id: string) => void;
   onEnsureExpanded: (id: string) => void;
   nav: NavMap;
+  depth: number;
 };
 
-function OutlineRows({ nodes, expanded, onToggleExpand, onEnsureExpanded, nav }: OutlineRowsProps) {
+function OutlineRows({ nodes, expanded, onToggleExpand, onEnsureExpanded, nav, depth }: OutlineRowsProps) {
   const { state } = useAppState();
   const hideCompleted = state.settings.hideCompleted;
   const visible = useMemo(
@@ -73,7 +76,16 @@ function OutlineRows({ nodes, expanded, onToggleExpand, onEnsureExpanded, nav }:
                 nextVisibleId={navEntry?.nextId}
               />
               {hasChildren ? (
-                <div id={regionId} className="outline-children" hidden={!isOpen}>
+                <div
+                  id={regionId}
+                  className="outline-children"
+                  hidden={!isOpen}
+                  style={
+                    {
+                      '--indent-color': `var(--indent-depth-${depth % INDENT_COLOR_COUNT})`,
+                    } as CSSProperties
+                  }
+                >
                   {isOpen ? (
                     <OutlineRows
                       nodes={node.children}
@@ -81,6 +93,7 @@ function OutlineRows({ nodes, expanded, onToggleExpand, onEnsureExpanded, nav }:
                       onToggleExpand={onToggleExpand}
                       onEnsureExpanded={onEnsureExpanded}
                       nav={nav}
+                      depth={depth + 1}
                     />
                   ) : null}
                 </div>
@@ -168,6 +181,7 @@ export function BulletList() {
           onToggleExpand={toggleExpand}
           onEnsureExpanded={ensureExpanded}
           nav={nav}
+          depth={0}
         />
       </div>
     </DndContext>

@@ -19,6 +19,7 @@ vi.mock('../sync/useDocumentSync', () => ({
     otherEditors: 0,
     otherPresences: [],
     permission: 'edit',
+    lastEditedBy: null,
     broadcastAction: () => {},
   }),
   createSharedDocument: async () => 'test-token',
@@ -29,7 +30,7 @@ vi.mock('../sync/useUserDocumentSync', () => ({
 }));
 
 vi.mock('../sync/useSharedSubtreeSync', () => ({
-  useSharedSubtreeSync: () => ({ broadcastSubtreeAction: () => {} }),
+  useSharedSubtreeSync: () => ({ broadcastSubtreeAction: () => {}, lastEditedByRoot: new Map() }),
 }));
 
 // React Testing Library: unmount rendered trees between tests (we use globals: false,

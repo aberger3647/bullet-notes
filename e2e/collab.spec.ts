@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { mockAuthenticatedSession, mockSharedDocument, makeLeaf } from './support/mockSupabase';
+import { mockAuthenticatedSession, mockSharedDocument, makeLeaf, FAKE_USER_ID } from './support/mockSupabase';
 
 test.beforeEach(async ({ page }) => {
   await mockAuthenticatedSession(page);
@@ -11,6 +11,26 @@ test('loads a shared document over the network and shows the shared-note banner'
 
   await expect(page.getByRole('status', { name: 'Shared note' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Bullet text' })).toHaveText('shared plan');
+});
+
+test('shows who last edited a shared document, even when they are offline now', async ({ page }) => {
+  await mockSharedDocument(page, 'e2e-last-edited-token', [makeLeaf('shared plan', 'last-edited-root')], {
+    lastEditedBy: 'some-other-user-id',
+    lastEditedByName: 'Partner',
+  });
+  await page.goto('/d/e2e-last-edited-token');
+
+  await expect(page.getByRole('status', { name: 'Shared note' })).toContainText('Last edited by Partner');
+});
+
+test('does not show a last-edited-by notice when the current user made the last edit', async ({ page }) => {
+  await mockSharedDocument(page, 'e2e-self-edited-token', [makeLeaf('shared plan', 'self-edited-root')], {
+    lastEditedBy: FAKE_USER_ID,
+    lastEditedByName: 'E2E Tester',
+  });
+  await page.goto('/d/e2e-self-edited-token');
+
+  await expect(page.getByRole('status', { name: 'Shared note' })).not.toContainText('Last edited by');
 });
 
 test('view-only shared documents render as read-only', async ({ page }) => {

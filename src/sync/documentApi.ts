@@ -6,6 +6,13 @@ import type { BroadcastMessage } from './syncTypes';
 export type DocumentRow = Omit<Tables<'bullet_notes_documents'>, 'tree' | 'permission'> & {
   tree: BulletNode[];
   permission: 'edit' | 'view';
+  last_edited_by_name: string | null;
+};
+
+export type DocumentMeta = {
+  last_edited_by: string | null;
+  last_edited_by_name: string | null;
+  updated_at: string;
 };
 
 export function parseBroadcastMessage(raw: unknown): BroadcastMessage | null {
@@ -32,6 +39,15 @@ export async function fetchDocument(shareToken: string): Promise<DocumentRow | n
   if (error) throw error;
   if (!data) return null;
   return data as DocumentRow;
+}
+
+export async function fetchDocumentMeta(shareToken: string): Promise<DocumentMeta | null> {
+  const { data, error } = await supabase.rpc('bullet_notes_get_document_meta', {
+    p_share_token: shareToken,
+  });
+  if (error) throw error;
+  if (!data) return null;
+  return data as DocumentMeta;
 }
 
 export async function persistDocument(shareToken: string, tree: BulletNode[]): Promise<void> {

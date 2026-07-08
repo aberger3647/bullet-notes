@@ -184,12 +184,14 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
     otherEditors,
     otherPresences,
     permission: sharedPermission,
+    lastEditedBy,
     broadcastAction,
   } = useDocumentSync({
     shareToken: shareToken ?? '',
     tree: state.tree,
     enabled: isShared && isSupabaseConfigured(),
     displayName,
+    userId: user?.id ?? null,
     editingId: editingBulletId,
     onRemoteAction,
     onHydrate: onHydrateShared,
@@ -205,9 +207,11 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
     onFirstVisit,
   });
 
-  const { broadcastSubtreeAction } = useSharedSubtreeSync({
+  const { broadcastSubtreeAction, lastEditedByRoot } = useSharedSubtreeSync({
     tree: state.tree,
     enabled: isLocal && isSupabaseConfigured(),
+    userId: user?.id ?? null,
+    displayName,
     onRemoteAction,
   });
 
@@ -569,6 +573,8 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
       syncStatus: resolvedSyncStatus,
       otherEditors,
       otherPresences,
+      lastEditedBy,
+      lastEditedByRoot,
       readOnly,
       shareNode,
       shareNodeFromGesture,
@@ -600,6 +606,8 @@ export function AppStateProvider({ children, mode, shareToken }: Props) {
       resolvedSyncStatus,
       otherEditors,
       otherPresences,
+      lastEditedBy,
+      lastEditedByRoot,
       readOnly,
       shareNode,
       shareNodeFromGesture,

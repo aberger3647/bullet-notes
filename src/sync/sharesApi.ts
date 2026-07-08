@@ -4,7 +4,10 @@ import type { Tables } from '../database-generated.types';
 import type { BulletNode } from '../state/types';
 import type { DocumentRow } from './documentApi';
 
-export type ShareMeta = Omit<DocumentRow, 'tree'>;
+// `last_edited_by_name` is excluded: bullet_notes_list_my_shares returns raw rows
+// (`to_jsonb(d) - 'tree'`) without the auth.users join that resolves it — unlike
+// bullet_notes_get_document/_meta, which do that join explicitly.
+export type ShareMeta = Omit<DocumentRow, 'tree' | 'last_edited_by_name'>;
 
 export type ShareRecipient = Pick<
   Tables<'bullet_notes_document_recipients'>,

@@ -45,6 +45,8 @@ beforeEach(() => {
     permission: 'edit',
     updated_at: '2024-01-01T00:00:00Z',
     share_token: 'tok',
+    last_edited_by: null,
+    last_edited_by_name: null,
   });
 });
 
@@ -63,6 +65,7 @@ function renderConnected(overrides: Partial<SyncProps> = {}) {
     tree: baseTree(),
     enabled: true,
     displayName: 'Tester',
+    userId: 'tester-1',
     editingId: null,
     onRemoteAction: () => {},
     onHydrate: (hydrated) => {
@@ -87,10 +90,11 @@ function rerenderWithTree(
 describe('useDocumentSync', () => {
   it('does not resave the just-hydrated tree merely because the connection came up', async () => {
     vi.useFakeTimers();
-    renderConnected();
+    const { unmount } = renderConnected();
     await act(async () => {});
     act(() => vi.advanceTimersByTime(SAVE_DEBOUNCE_MS));
     expect(vi.mocked(persistDocument)).not.toHaveBeenCalled();
+    unmount();
     vi.useRealTimers();
   });
 
@@ -103,27 +107,56 @@ describe('useDocumentSync', () => {
       permission: 'view',
       updated_at: '2024-01-01T00:00:00Z',
       share_token: 'tok',
+      last_edited_by: null,
+      last_edited_by_name: null,
     });
     vi.useFakeTimers();
-    const { result, rerender, initialProps } = renderConnected();
+    const { result, rerender, initialProps, unmount } = renderConnected();
     await act(async () => {});
     expect(result.current.permission).toBe('view');
 
     rerenderWithTree(rerender, initialProps, [node('root', [], { shareToken: 'tok', text: 'edited' })]);
+    act(() => result.current.broadcastAction({ type: 'TOGGLE_COMPLETE', id: 'root' }));
     act(() => vi.advanceTimersByTime(SAVE_DEBOUNCE_MS));
     expect(vi.mocked(persistDocument)).not.toHaveBeenCalled();
+    unmount();
     vi.useRealTimers();
   });
 
   it('still saves a genuine edit after the debounce', async () => {
     vi.useFakeTimers();
-    const { rerender, initialProps } = renderConnected();
+    const { result, rerender, initialProps, unmount } = renderConnected();
     await act(async () => {});
 
     const editedTree = [node('root', [], { shareToken: 'tok', text: 'edited' })];
     rerenderWithTree(rerender, initialProps, editedTree);
+    act(() => result.current.broadcastAction({ type: 'TOGGLE_COMPLETE', id: 'root' }));
     act(() => vi.advanceTimersByTime(SAVE_DEBOUNCE_MS));
     expect(vi.mocked(persistDocument)).toHaveBeenCalledWith('tok', editedTree);
+    unmount();
+    vi.useRealTimers();
+  });
+
+  it('does not schedule a save for a remote action merely echoed back through the reducer', async () => {
+    // Guards against the exact regression this hook used to have: a save effect that
+    // watched `tree` couldn't tell a genuinely local edit apart from a remote one just
+    // applied locally, so whichever peer's debounce fired last stamped `last_edited_by`
+    // with itself. Saves must only ever be scheduled from broadcastAction (local edits).
+    vi.useFakeTimers();
+    const { rerender, initialProps, unmount } = renderConnected();
+    await act(async () => {});
+    // Isolate this test's "not called" assertion from a previous test's fake-timer-driven
+    // persistDocument call, whose promise settlement can otherwise still be in flight
+    // across the test boundary (renderHook + fake timers is known to be finicky here).
+    vi.mocked(persistDocument).mockClear();
+
+    // Simulate a remote peer's edit landing via onRemoteAction -> dispatch -> new tree
+    // prop, with no corresponding broadcastAction call (mirrors AppStateProvider's
+    // isRemoteRef guard, which skips broadcastAction for remote-originated actions).
+    rerenderWithTree(rerender, initialProps, [node('root', [], { shareToken: 'tok', text: 'edited remotely' })]);
+    act(() => vi.advanceTimersByTime(SAVE_DEBOUNCE_MS));
+    expect(vi.mocked(persistDocument)).not.toHaveBeenCalled();
+    unmount();
     vi.useRealTimers();
   });
 
@@ -132,29 +165,33 @@ describe('useDocumentSync', () => {
     vi.mocked(persistDocument).mockRejectedValue(
       Object.assign(new Error('This document is view-only or no longer shared'), { code: 'P0001' }),
     );
-    const { result, rerender, initialProps } = renderConnected();
+    const { result, rerender, initialProps, unmount } = renderConnected();
     await act(async () => {});
 
     rerenderWithTree(rerender, initialProps, [node('root', [], { shareToken: 'tok', text: 'edited' })]);
+    act(() => result.current.broadcastAction({ type: 'TOGGLE_COMPLETE', id: 'root' }));
     act(() => vi.advanceTimersByTime(SAVE_DEBOUNCE_MS));
     await act(async () => {});
 
     expect(result.current.permission).toBe('view');
     expect(result.current.status).toBe('connected');
+    unmount();
     vi.useRealTimers();
   });
 
   it('sets status to error for an unrelated save rejection', async () => {
     vi.useFakeTimers();
     vi.mocked(persistDocument).mockRejectedValue(new Error('network boom'));
-    const { result, rerender, initialProps } = renderConnected();
+    const { result, rerender, initialProps, unmount } = renderConnected();
     await act(async () => {});
 
     rerenderWithTree(rerender, initialProps, [node('root', [], { shareToken: 'tok', text: 'edited' })]);
+    act(() => result.current.broadcastAction({ type: 'TOGGLE_COMPLETE', id: 'root' }));
     act(() => vi.advanceTimersByTime(SAVE_DEBOUNCE_MS));
     await act(async () => {});
 
     expect(result.current.status).toBe('error');
+    unmount();
     vi.useRealTimers();
   });
 
