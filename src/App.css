@@ -178,13 +178,21 @@ html[data-zoom-direction='backward']::view-transition-new(bullet-list) {
 .bullet-row-content {
   position: relative;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.35rem;
   padding: 0.04rem 0;
   /* Opaque (matching the page background) so it masks the swipe-to-delete
      action behind it at rest — see .bullet-row-swipe-action below. */
   background: var(--background);
   touch-action: pan-y;
+}
+
+/* With align-items: flex-start above, row children anchor to the row's top edge
+   instead of centering on the full (possibly multi-line) text block. This offset
+   re-centers the icons/badges on just the first line — it matches .bullet-input's
+   own top inset (0.15rem padding + 1px border) so single-line rows look unchanged. */
+.bullet-row-content > *:not(.bullet-input) {
+  margin-top: calc(0.15rem + 1px);
 }
 
 .bullet-row--selected .bullet-row-content {

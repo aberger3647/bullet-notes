@@ -1,4 +1,4 @@
-import type { AppAction, AppState, FocusCaret, Snapshot } from './types';
+import type { AppAction, AppState, BulletNode, FocusCaret, Snapshot } from './types';
 import { MAX_HISTORY } from './types';
 import {
   createNode,
@@ -9,6 +9,7 @@ import {
   insertSiblingsAfter,
   insertSiblingBefore,
   locateNode,
+  replaceNodeInPlace,
   duplicateSubtree,
   mergeNodeIntoPrevious,
   moveAsChild,
@@ -62,6 +63,15 @@ function withCommit(state: AppState, next: Partial<AppState>): AppState {
       future: [],
     },
   };
+}
+
+/**
+ * True for a freshly-created, still-blank bullet (e.g. via Enter, or Enter+Tab to
+ * indent) that a paste should take over rather than leave behind as a stray empty
+ * row. Excludes shared nodes so a paste can never silently orphan a live share link.
+ */
+function isEmptyPasteTarget(node: BulletNode): boolean {
+  return node.text === '' && node.children.length === 0 && !node.shareToken;
 }
 
 function applyUndo(state: AppState): AppState {
@@ -186,7 +196,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         }
         return crypto.randomUUID();
       });
-      const nextTree = insertSiblingAfter(state.tree, action.afterId, fresh);
+      const nextTree = isEmptyPasteTarget(loc.node)
+        ? replaceNodeInPlace(state.tree, action.afterId, [fresh])
+        : insertSiblingAfter(state.tree, action.afterId, fresh);
       if (nextTree === state.tree) return state;
       return withCommit(state, { tree: nextTree, focusedId: fresh.id, focusCaret: 'end' });
     }
@@ -204,7 +216,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           return crypto.randomUUID();
         }),
       );
-      const nextTree = insertSiblingsAfter(state.tree, action.afterId, fresh);
+      const nextTree = isEmptyPasteTarget(loc.node)
+        ? replaceNodeInPlace(state.tree, action.afterId, fresh)
+        : insertSiblingsAfter(state.tree, action.afterId, fresh);
       if (nextTree === state.tree) return state;
       return withCommit(state, {
         tree: nextTree,

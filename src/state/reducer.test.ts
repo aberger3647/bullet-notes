@@ -301,6 +301,35 @@ describe('PASTE_SUBTREE', () => {
       appReducer(s, { type: 'PASTE_SUBTREE', afterId: 'nope', subtree: node('x'), newId: 'fresh' }),
     ).toBe(s);
   });
+
+  it('replaces an empty, childless target instead of inserting after it (e.g. Enter+Tab then paste)', () => {
+    const s = stateWith([node('a', [node('empty', [], { text: '' })])]);
+    const pasted = node('x', [node('x1')], { text: 'pasted root' });
+    const next = appReducer(s, {
+      type: 'PASTE_SUBTREE',
+      afterId: 'empty',
+      subtree: pasted,
+      newId: 'fresh-root',
+    });
+    expect(next.tree[0]!.children.map((n) => n.id)).toEqual(['fresh-root']);
+    expect(next.tree[0]!.children[0]!.text).toBe('pasted root');
+    expect(next.focusedId).toBe('fresh-root');
+  });
+
+  it('does not replace an empty target that already has children', () => {
+    const s = stateWith([node('empty', [node('child')], { text: '' })]);
+    const pasted = node('x', [], { text: 'pasted' });
+    const next = appReducer(s, { type: 'PASTE_SUBTREE', afterId: 'empty', subtree: pasted, newId: 'fresh' });
+    expect(next.tree.map((n) => n.id)).toEqual(['empty', 'fresh']);
+  });
+
+  it('does not replace an empty target that still carries a live shareToken', () => {
+    const s = stateWith([node('empty', [], { text: '', shareToken: 'tok' })]);
+    const pasted = node('x', [], { text: 'pasted' });
+    const next = appReducer(s, { type: 'PASTE_SUBTREE', afterId: 'empty', subtree: pasted, newId: 'fresh' });
+    expect(next.tree.map((n) => n.id)).toEqual(['empty', 'fresh']);
+    expect(next.tree[0]!.shareToken).toBe('tok');
+  });
 });
 
 describe('PASTE_OUTLINE', () => {
@@ -336,6 +365,21 @@ describe('PASTE_OUTLINE', () => {
     expect(
       appReducer(s, { type: 'PASTE_OUTLINE', afterId: 'nope', roots: [node('x')] }),
     ).toBe(s);
+  });
+
+  it('replaces an empty, childless target with all pasted roots instead of inserting after it', () => {
+    const s = stateWith([node('a'), node('empty', [], { text: '' })]);
+    const pasted = [node('x', [], { text: 'first' }), node('y', [node('y1')], { text: 'second' })];
+    const next = appReducer(s, {
+      type: 'PASTE_OUTLINE',
+      afterId: 'empty',
+      roots: pasted,
+      newId: 'fresh-first',
+    });
+    expect(next.tree.map((n) => n.id)).toEqual(['a', 'fresh-first', next.tree[2]!.id]);
+    expect(next.tree[1]!.text).toBe('first');
+    expect(next.tree[2]!.text).toBe('second');
+    expect(next.focusedId).toBe(next.tree[2]!.id);
   });
 });
 

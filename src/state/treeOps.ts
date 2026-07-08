@@ -274,6 +274,19 @@ export function insertSiblingsAfter(
   return replaceSiblings(roots, loc.siblings, copy);
 }
 
+/** Replace `id` with `replacements` at the same position among its siblings (immutable). */
+export function replaceNodeInPlace(
+  roots: BulletNode[],
+  id: string,
+  replacements: BulletNode[],
+): BulletNode[] {
+  const loc = locateNode(roots, id);
+  if (!loc) return roots;
+  const copy = [...loc.siblings];
+  copy.splice(loc.index, 1, ...replacements);
+  return replaceSiblings(roots, loc.siblings, copy);
+}
+
 export function appendChild(roots: BulletNode[], parentId: string, child: BulletNode): BulletNode[] {
   const parentLoc = locateNode(roots, parentId);
   if (!parentLoc) return roots;

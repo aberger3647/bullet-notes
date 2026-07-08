@@ -18,6 +18,7 @@ import {
   insertSiblingBefore,
   insertSiblingAfter,
   insertSiblingsAfter,
+  replaceNodeInPlace,
   appendChild,
   indentNode,
   outdentNode,
@@ -260,6 +261,28 @@ describe('insertSiblingsAfter', () => {
   it('returns the same reference when the target is missing', () => {
     const tree = [node('a')];
     expect(insertSiblingsAfter(tree, 'nope', [node('x')])).toBe(tree);
+  });
+});
+
+describe('replaceNodeInPlace', () => {
+  it('swaps a single node for one replacement at the same position', () => {
+    const tree = [node('a'), node('b'), node('c')];
+    expect(ids(replaceNodeInPlace(tree, 'b', [node('x')]))).toEqual(['a', 'x', 'c']);
+  });
+
+  it('swaps a single node for multiple replacements, preserving order', () => {
+    const tree = [node('a'), node('b'), node('c')];
+    expect(ids(replaceNodeInPlace(tree, 'b', [node('x'), node('y')]))).toEqual(['a', 'x', 'y', 'c']);
+  });
+
+  it('works on nested siblings, not just the root list', () => {
+    const tree = [node('a', [node('a1'), node('a2')])];
+    expect(ids(replaceNodeInPlace(tree, 'a1', [node('x')]))).toEqual(['a', 'x', 'a2']);
+  });
+
+  it('returns the same reference when the target is missing', () => {
+    const tree = [node('a')];
+    expect(replaceNodeInPlace(tree, 'nope', [node('x')])).toBe(tree);
   });
 });
 
