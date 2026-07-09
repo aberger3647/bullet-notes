@@ -416,10 +416,15 @@ export function BulletRow({
       onPointerUp={endSwipe}
       onPointerCancel={onSwipePointerCancel}
     >
-      <div className="bullet-row-swipe-action" aria-hidden>
-        Delete
-      </div>
-      <div className="bullet-row-content" style={{ transform: `translateX(${swipeOffset}px)` }}>
+      {swipeOffset ? (
+        <div className="bullet-row-swipe-action" aria-hidden>
+          Delete
+        </div>
+      ) : null}
+      <div
+        className="bullet-row-content"
+        style={swipeOffset ? { transform: `translateX(${swipeOffset}px)` } : undefined}
+      >
       <div className="share-slot">
         <Button
           type="button"
